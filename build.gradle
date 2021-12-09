@@ -1,0 +1,31 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${libs.versions.kotlin.get()}"
+        classpath "com.ncorti.ktfmt.gradle:plugin:0.7.0"
+        classpath 'com.palantir.gradle.gitversion:gradle-git-version:0.12.3'
+    }
+}
+
+apply plugin: 'com.palantir.git-version'
+
+allprojects {
+    group 'me.roitgrund'
+    version rootProject.version
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'kotlin'
+    apply plugin: 'com.ncorti.ktfmt.gradle'
+
+    dependencyLocking {
+        lockAllConfigurations()
+    }
+}

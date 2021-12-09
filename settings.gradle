@@ -1,0 +1,19 @@
+rootProject.name = 'bandcamp-feed-root'
+
+include 'bandcamp-feed'
+
+enableFeaturePreview('VERSION_CATALOGS')
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        libs {
+            version('kotlin', '1.6.0')
+            version('slf4j', '1.7.32')
+
+            alias('kotlin-stdlib').to('org.jetbrains.kotlin', 'kotlin-stdlib-jdk8').versionRef('kotlin')
+            alias('slf4j-api').to('org.slf4j', 'slf4j-api').versionRef('slf4j')
+            alias('slf4j-simple').to('org.slf4j', 'slf4j-simple').versionRef('slf4j')
+        }
+    }
+}
+
