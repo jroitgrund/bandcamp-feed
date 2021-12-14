@@ -8,14 +8,21 @@ dependencyResolutionManagement {
     versionCatalogs {
         libs {
             version('apache-commons-text', '1.9')
+            version('guava', '31.0.1-jre')
+            version('jsoup', '1.14.3')
             version('kotlin', '1.6.0')
             version('ktor', '1.6.7')
             version('playwright', '1.17.0')
             version('rome', '1.0')
             version('slf4j', '1.7.32')
 
+            //// https://mvnrepository.com/artifact/org.jsoup/jsoup
             alias('apache-commons-text').to('org.apache.commons', 'commons-text').versionRef('apache-commons-text')
+            alias('guava').to('com.google.guava', 'guava').versionRef('guava')
             alias('kotlin-stdlib').to('org.jetbrains.kotlin', 'kotlin-stdlib-jdk8').versionRef('kotlin')
+            alias('jsoup').to('org.jsoup', 'jsoup').versionRef('jsoup')
+            alias('ktor-client-cio').to('io.ktor', 'ktor-client-cio').versionRef('ktor')
+            alias('ktor-client-core').to('io.ktor', 'ktor-client-core').versionRef('ktor')
             alias('ktor-core').to('io.ktor', 'ktor-server-core').versionRef('ktor')
             alias('ktor-html-builder').to('io.ktor', 'ktor-html-builder').versionRef('ktor')
             alias('ktor-netty').to('io.ktor', 'ktor-server-netty').versionRef('ktor')

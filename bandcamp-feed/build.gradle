@@ -1,10 +1,13 @@
 dependencies {
     implementation libs.apache.commons.text
+    implementation libs.guava
+    implementation libs.jsoup
     implementation libs.kotlin.stdlib
+    implementation libs.ktor.client.cio
+    implementation libs.ktor.client.core
     implementation libs.ktor.core
     implementation libs.ktor.html.builder
     implementation libs.ktor.netty
-    implementation libs.playwright
     implementation libs.rome
     implementation libs.slf4j.api
     implementation libs.slf4j.simple
