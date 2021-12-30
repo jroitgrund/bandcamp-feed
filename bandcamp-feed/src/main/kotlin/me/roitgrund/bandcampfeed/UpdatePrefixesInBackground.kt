@@ -29,10 +29,10 @@ fun updatePrefixesInBackground(storage: Storage, bandcampClient: BandcampClient)
             } else {
               BandcampFeedServer.log.info("No prefix to update")
             }
-            delay(1000)
           } catch (e: RuntimeException) {
             BandcampFeedServer.log.error("Error", e)
           }
+          delay(1000)
         }
       }
 }
