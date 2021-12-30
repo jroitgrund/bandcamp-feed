@@ -52,7 +52,7 @@ fun main(args: Array<String>): Unit = EngineMain.main(args)
 
 fun Application.module() {
   val bandcampClient = BandcampClient()
-  val dbPath = environment.config.property("dbPath")
+  val dbPath = environment.config.property("ktor.dbPath").getString()
   val storage: Storage = SqlStorage("jdbc:sqlite:$dbPath")
 
   updatePrefixesInBackground(storage, bandcampClient)
