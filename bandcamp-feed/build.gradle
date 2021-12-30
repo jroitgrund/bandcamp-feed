@@ -7,11 +7,17 @@ buildscript {
 
 plugins {
     id 'nu.studer.jooq' version '6.0.1'
+    id 'com.bmuschko.docker-java-application' version '7.1.0'
+    id 'application'
 }
 
 apply plugin: "org.flywaydb.flyway"
 
-def dbPath = projectDir.toPath().toAbsolutePath()
+application {
+    mainClass = 'me.roitgrund.bandcampfeed.BandcampFeedServerKt'
+}
+
+def dbPath = rootProject.projectDir.toPath().toAbsolutePath()
 
 flyway {
     url = "jdbc:sqlite:${dbPath}/db.sqlite"
@@ -73,3 +79,12 @@ test {
 }
 
 tasks.generateJooq.dependsOn flywayMigrate
+
+docker {
+    javaApplication {
+        baseImage = 'openjdk:bullseye'
+        images = ["jroitgrund/bandcamp-feed:${project.version}", "jroitgrund/bandcamp-feed:latest"]
+        mainClassName = "me.roitgrund.bandcampfeed.BandcampFeedServerKt"
+    }
+}
+

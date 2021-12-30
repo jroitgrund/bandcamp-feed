@@ -12,6 +12,8 @@ buildscript {
 
 apply plugin: 'com.palantir.git-version'
 
+version gitVersion()
+
 allprojects {
     group 'me.roitgrund'
     version rootProject.version

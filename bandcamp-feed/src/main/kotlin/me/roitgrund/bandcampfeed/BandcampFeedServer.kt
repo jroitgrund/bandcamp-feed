@@ -52,7 +52,8 @@ fun main(args: Array<String>): Unit = EngineMain.main(args)
 
 fun Application.module() {
   val bandcampClient = BandcampClient()
-  val storage: Storage = InMemoryStorage()
+  val dbPath = environment.config.property("dbPath")
+  val storage: Storage = SqlStorage("jdbc:sqlite:$dbPath")
 
   updatePrefixesInBackground(storage, bandcampClient)
 

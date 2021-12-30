@@ -16,7 +16,7 @@ internal class BandcampFeedServerKtTest {
 
   @Test
   fun testEte(@TempDir tempDir: Path) {
-    val dbPath = tempDir.resolve("bandcamp-feed.sqlite")
+    val dbPath = tempDir.resolve("db.sqlite")
     val url = "jdbc:sqlite:${dbPath}"
     runBlocking {
       val bandcampClient = BandcampClient()
