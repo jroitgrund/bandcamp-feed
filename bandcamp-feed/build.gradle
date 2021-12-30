@@ -85,6 +85,11 @@ docker {
         baseImage = 'openjdk:bullseye'
         images = ["jroitgrund/bandcamp-feed:${project.version}", "jroitgrund/bandcamp-feed:latest"]
         mainClassName = "me.roitgrund.bandcampfeed.BandcampFeedServerKt"
+        ports = [8080]
     }
+}
+
+dockerCreateDockerfile {
+    instruction 'RUN touch /app/db.sqlite'
 }
 
