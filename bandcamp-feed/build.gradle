@@ -1,3 +1,54 @@
+buildscript {
+    dependencies {
+        classpath "org.xerial:sqlite-jdbc:${libs.versions.sqlite.get()}"
+        classpath "gradle.plugin.org.flywaydb:gradle-plugin-publishing:${libs.versions.flyway.get()}"
+    }
+}
+
+plugins {
+    id 'nu.studer.jooq' version '6.0.1'
+}
+
+apply plugin: "org.flywaydb.flyway"
+
+def dbPath = projectDir.toPath().toAbsolutePath()
+
+flyway {
+    url = "jdbc:sqlite:${dbPath}/db.sqlite"
+}
+
+dependencies {
+    jooqGenerator "org.xerial:sqlite-jdbc:${libs.versions.sqlite.get()}"
+}
+
+jooq {
+    version = "${libs.versions.jooq.get()}"
+
+    configurations {
+        main {
+            generationTool {
+                jdbc {
+                    driver = 'org.sqlite.JDBC'
+                    url = url = "jdbc:sqlite:${dbPath}/db.sqlite"
+                }
+                generator {
+                    name = 'org.jooq.codegen.DefaultGenerator'
+                    generate {
+                        deprecated = false
+                        records = true
+                        immutablePojos = true
+                        fluentSetters = true
+                    }
+                    target {
+                        packageName = 'me.roitgrund.bandcampfeed.sql'
+                    }
+                    strategy.name = 'org.jooq.codegen.DefaultGeneratorStrategy'
+                }
+            }
+        }
+    }
+}
+
 dependencies {
     implementation libs.apache.commons.text
     implementation libs.guava
@@ -11,10 +62,14 @@ dependencies {
     implementation libs.rome
     implementation libs.slf4j.api
     implementation libs.slf4j.simple
+    implementation libs.sqlite
 
     testImplementation 'org.jetbrains.kotlin:kotlin-test'
+    testImplementation libs.flyway
 }
 
 test {
     useJUnitPlatform()
 }
+
+tasks.generateJooq.dependsOn flywayMigrate

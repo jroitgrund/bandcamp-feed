@@ -2,39 +2,60 @@ package me.roitgrund.bandcampfeed
 
 import BandcampClient
 import io.ktor.http.*
+import java.nio.file.Path
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import org.flywaydb.core.Flyway
+import org.junit.jupiter.api.io.TempDir
+import org.opentest4j.AssertionFailedError
 
 internal class BandcampFeedServerKtTest {
+
   @Test
-  fun testEte() {
+  fun testEte(@TempDir tempDir: Path) {
+    val dbPath = tempDir.resolve("bandcamp-feed.sqlite")
+    val url = "jdbc:sqlite:${dbPath}"
     runBlocking {
       val bandcampClient = BandcampClient()
-      val storage: Storage = InMemoryStorage()
+      val storage: Storage = SqlStorage(url)
+      Flyway.configure().dataSource(url, "", "").load().migrate()
+
+      updatePrefixesInBackground(storage, bandcampClient)
 
       val feedId =
-          createFeed(
-              storage, setOf(BandcampPrefix("romancemoderne"), BandcampPrefix("augurirecords")))
+          storage.saveFeed(
+              "title", setOf(BandcampPrefix("romancemoderne"), BandcampPrefix("augurirecords")))
 
-      assertEquals(
-          listOf(
-              BandcampRelease(
-                  "2072740262",
-                  Url("https://augurirecords.bandcamp.com/album/intensive-care-vol-1"),
-                  "Intensive Care, Vol. 1",
-                  "Various",
-                  LocalDate.parse("2020-04-01")),
-              BandcampRelease(
-                  "3271455394",
-                  Url("https://romancemoderne.bandcamp.com/album/lovers-revenge"),
-                  "Lovers Revenge",
-                  "LOVERS REVENGE",
-                  LocalDate.parse("2015-01-22"))),
-          getFeed(feedId, storage, bandcampClient)
-              .dropWhile { it.date.isAfter(LocalDate.parse("2020-04-01")) }
-              .take(2))
+      (0..60).forEach { i ->
+        try {
+          assertEquals(
+              listOf(
+                  BandcampRelease(
+                      "2072740262",
+                      Url("https://augurirecords.bandcamp.com/album/intensive-care-vol-1"),
+                      "Intensive Care, Vol. 1",
+                      "Various",
+                      LocalDate.parse("2020-04-01")),
+                  BandcampRelease(
+                      "3271455394",
+                      Url("https://romancemoderne.bandcamp.com/album/lovers-revenge"),
+                      "Lovers Revenge",
+                      "LOVERS REVENGE",
+                      LocalDate.parse("2015-01-22"))),
+              checkNotNull(storage.getFeedReleases(feedId))
+                  .second
+                  .dropWhile { it.date.isAfter(LocalDate.parse("2020-04-01")) }
+                  .take(2))
+        } catch (e: AssertionFailedError) {
+          if (i == 60) {
+            throw e
+          }
+          delay(1000)
+        }
+      }
     }
   }
 }

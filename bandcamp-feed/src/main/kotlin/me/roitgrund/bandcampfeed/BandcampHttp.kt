@@ -19,9 +19,9 @@ import me.roitgrund.bandcampfeed.BandcampReleaseIntermediate
 import org.apache.commons.text.StringEscapeUtils
 import org.jsoup.Jsoup
 
-private val ITEM_ID_PATTERN: Pattern = Pattern.compile("album-(.*)")
+private val ITEM_ID_PATTERN: Pattern = Pattern.compile("(album|track)-(.*)")
 private val TITLE_PATTERN: Pattern = Pattern.compile("^(.*) <br>.*> (.*) </span")
-private val DATE_PATTERN: Pattern = Pattern.compile("released (.*)\n")
+private val DATE_PATTERN: Pattern = Pattern.compile("(released|releases) (.*)\n")
 private val DATE_FORMAT: DateTimeFormatter =
     DateTimeFormatterBuilder()
         .appendValue(ChronoField.DAY_OF_MONTH, 2)
@@ -78,14 +78,24 @@ class BandcampClient {
 
 private fun getItemId(attribute: String): String {
   val matcher = ITEM_ID_PATTERN.matcher(attribute)
-  check(matcher.matches())
-  return checkNotNull(matcher.group(1))
+  try {
+    check(matcher.matches())
+  } catch (e: IllegalStateException) {
+    throw IllegalStateException(
+        String.format("Couldn't parse item id from attribute '%s'", attribute), e)
+  }
+  return checkNotNull(matcher.group(2))
 }
 
 private fun parseDate(metaDescription: String): LocalDate {
   val matcher = DATE_PATTERN.matcher(metaDescription)
-  check(matcher.find())
-  val datePart = checkNotNull(matcher.group(1))
+  try {
+    check(matcher.find())
+  } catch (e: IllegalStateException) {
+    throw IllegalStateException(
+        String.format("Couldn't parse date from description '%s'", metaDescription), e)
+  }
+  val datePart = checkNotNull(matcher.group(2))
   return LocalDate.parse(datePart, DATE_FORMAT)
 }
 
