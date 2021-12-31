@@ -5,6 +5,7 @@ import com.sun.syndication.feed.synd.*
 import com.sun.syndication.io.SyndFeedOutput
 import io.ktor.application.*
 import io.ktor.http.*
+import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.netty.*
@@ -61,13 +62,12 @@ fun Application.module() {
 
   routing {
     post("/feeds") {
+      var parameters = call.receiveParameters()
       call.respondText {
         storage
             .saveFeed(
-                checkNotNull(call.request.queryParameters.get("name")),
-                checkNotNull(call.request.queryParameters.getAll("prefixes"))
-                    .map(::BandcampPrefix)
-                    .toSet())
+                checkNotNull(parameters["name"]),
+                checkNotNull(parameters.getAll("prefixes")).map(::BandcampPrefix).toSet())
             .id
             .toString()
       }
@@ -81,7 +81,7 @@ fun Application.module() {
         val feed: SyndFeed = SyndFeedImpl()
 
         feed.title = name
-        feed.link = "https://bandcamp-feed.roitgrund.me"
+        feed.link = "https://bandcamp-feed.roitgrund.me/feeds/${feedId.id}"
         feed.description = name
         feed.entries = releases.map(::entry)
         feed.feedType = "rss_2.0"
