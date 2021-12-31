@@ -4,7 +4,8 @@ import BandcampClient
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.flowOf
 import org.flywaydb.core.Flyway
 
 fun updatePrefixesInBackground(storage: Storage, dbUrl: String, bandcampClient: BandcampClient) {
@@ -26,7 +27,14 @@ fun updatePrefixesInBackground(storage: Storage, dbUrl: String, bandcampClient: 
                   .getReleases(prefix)
                   .takeWhile { !storage.isReleasePresent(ReleaseId(it.id)) }
                   .asFlow()
-                  .map { bandcampClient.getRelease(it) }
+                  .flatMapConcat {
+                    try {
+                      flowOf(bandcampClient.getRelease(it))
+                    } catch (e: Exception) {
+                      BandcampFeedServer.log.error("Error with release {}", it.url, e)
+                      kotlinx.coroutines.flow.emptyFlow()
+                    }
+                  }
                   .collect { storage.addRelease(prefix, it) }
             } else {
               BandcampFeedServer.log.info("No prefix to update")
