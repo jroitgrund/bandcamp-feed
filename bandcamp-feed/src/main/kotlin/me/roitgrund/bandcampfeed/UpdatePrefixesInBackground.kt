@@ -21,7 +21,7 @@ fun updatePrefixesInBackground(storage: Storage, dbUrl: String, bandcampClient: 
           try {
             prefix = storage.getNextPrefix(prefix)
             if (prefix != null) {
-              BandcampFeedServer.log.info("Updating prefix {}", prefix)
+              BandcampFeedServer.log.info("Updating prefix {}", prefix.prefix)
               bandcampClient
                   .getReleases(prefix)
                   .takeWhile { !storage.isReleasePresent(ReleaseId(it.id)) }

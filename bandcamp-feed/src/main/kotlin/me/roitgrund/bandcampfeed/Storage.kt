@@ -115,7 +115,8 @@ class SqlStorage(val url: String) : Storage {
                       Url(releaseRecord.url),
                       releaseRecord.title,
                       releaseRecord.artist,
-                      LocalDate.parse(releaseRecord.releaseDate))
+                      LocalDate.parse(releaseRecord.releaseDate),
+                      BandcampPrefix(it.into(ReleasesPrefixes.RELEASES_PREFIXES).bandcampPrefix))
                 }
                 .sortedByDescending { it.date }
                 .toList())

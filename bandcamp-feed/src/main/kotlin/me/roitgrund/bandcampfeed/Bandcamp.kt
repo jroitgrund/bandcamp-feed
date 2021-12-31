@@ -10,12 +10,14 @@ data class BandcampRelease(
     val url: Url,
     val title: String,
     val artist: String,
-    val date: LocalDate
+    val date: LocalDate,
+    val prefix: BandcampPrefix
 )
 
 data class BandcampReleaseIntermediate(
     val id: String,
     val url: Url,
     val title: String,
-    val artist: String
+    val artist: String,
+    val prefix: BandcampPrefix
 )

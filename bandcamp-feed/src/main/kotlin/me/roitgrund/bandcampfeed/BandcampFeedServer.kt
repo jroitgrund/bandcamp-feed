@@ -8,13 +8,13 @@ import io.ktor.http.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.netty.*
-import kotlinx.html.iframe
-import kotlinx.html.stream.appendHTML
-import org.slf4j.LoggerFactory
 import java.io.OutputStreamWriter
 import java.net.URI
 import java.time.ZoneOffset
 import java.util.*
+import kotlinx.html.iframe
+import kotlinx.html.stream.appendHTML
+import org.slf4j.LoggerFactory
 
 object BandcampFeedServer {
   val log = LoggerFactory.getLogger(BandcampFeedServer::class.java)
@@ -27,7 +27,8 @@ fun playerUrl(bandcampRelease: BandcampRelease): URI {
 
 fun entry(bandcampRelease: BandcampRelease): SyndEntry {
   val entry = SyndEntryImpl()
-  entry.title = "${bandcampRelease.artist} - ${bandcampRelease.title}"
+  entry.title =
+      "(${bandcampRelease.prefix.prefix}) ${bandcampRelease.artist} - ${bandcampRelease.title}"
   entry.link = bandcampRelease.url.toString()
   entry.publishedDate = Date.from(bandcampRelease.date.atStartOfDay().toInstant(ZoneOffset.UTC))
 

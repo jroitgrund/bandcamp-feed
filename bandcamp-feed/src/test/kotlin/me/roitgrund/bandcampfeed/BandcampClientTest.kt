@@ -12,7 +12,8 @@ private val INTERMEDIATE_RELEASE =
         "4188283577",
         Url("https://danzanativa.bandcamp.com/album/a-vision-of-light"),
         "A Vision Of Light",
-        "Forest On Stasys")
+        "Forest On Stasys",
+        BandcampPrefix("danzanativa"))
 
 internal class BandcampClientTest {
   @Test
@@ -32,7 +33,8 @@ internal class BandcampClientTest {
               Url("https://danzanativa.bandcamp.com/album/a-vision-of-light"),
               "A Vision Of Light",
               "Forest On Stasys",
-              LocalDate.of(2019, 2, 10)),
+              LocalDate.of(2019, 2, 10),
+              BandcampPrefix("danzanativa")),
           BandcampClient().getRelease(INTERMEDIATE_RELEASE))
     }
   }

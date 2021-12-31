@@ -55,13 +55,13 @@ class BandcampClient {
           val releaseUri =
               cleanUpReleaseUri(checkNotNull(it.selectFirst("a")?.attr("href")), bandcampPrefix)
           val (title, artist) = parseTitleAndArtist(checkNotNull(it.selectFirst("p.title")?.html()))
-          BandcampReleaseIntermediate(id, Url(releaseUri), title, artist)
+          BandcampReleaseIntermediate(id, Url(releaseUri), title, artist, bandcampPrefix)
         }
         .toList()
   }
 
   suspend fun getRelease(bandcampRelease: BandcampReleaseIntermediate): BandcampRelease {
-    val (id, url, title, artist) = bandcampRelease
+    val (id, url, title, artist, prefix) = bandcampRelease
     return BandcampRelease(
         id,
         url,
@@ -72,7 +72,8 @@ class BandcampClient {
                 Jsoup.parse(getHtml(bandcampRelease.url))
                     .head()
                     .selectFirst("meta[name=description]")
-                    ?.attr("content"))))
+                    ?.attr("content"))),
+        prefix)
   }
 }
 
