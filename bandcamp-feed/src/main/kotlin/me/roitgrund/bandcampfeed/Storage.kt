@@ -1,14 +1,14 @@
 package me.roitgrund.bandcampfeed
 
 import io.ktor.http.*
-import java.time.LocalDate
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 import me.roitgrund.bandcampfeed.sql.tables.*
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.asterisk
 import org.jooq.impl.DSL.inline
+import java.time.LocalDate
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 data class FeedID(val id: UUID)
 
@@ -28,12 +28,16 @@ class SqlStorage(val url: String) : Storage {
     return runWithConnection { c ->
       c.transactionResult { tx ->
         val dsl = DSL.using(tx)
-        dsl.batchStore(
+        dsl.loadInto(BandcampPrefixes.BANDCAMP_PREFIXES)
+            .batchAll()
+            .onDuplicateKeyIgnore()
+            .loadRecords(
                 bandcampPrefixes.map {
                   val newRecord = dsl.newRecord(BandcampPrefixes.BANDCAMP_PREFIXES)
                   newRecord.bandcampPrefix = it.prefix
                   newRecord
                 })
+            .fields(BandcampPrefixes.BANDCAMP_PREFIXES.fields().toList())
             .execute()
 
         val feedId = FeedID(UUID.randomUUID())
