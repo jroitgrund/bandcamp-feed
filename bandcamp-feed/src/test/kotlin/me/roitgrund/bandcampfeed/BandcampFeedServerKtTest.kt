@@ -2,28 +2,26 @@ package me.roitgrund.bandcampfeed
 
 import BandcampClient
 import io.ktor.http.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.io.TempDir
+import org.opentest4j.AssertionFailedError
 import java.nio.file.Path
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
-import org.flywaydb.core.Flyway
-import org.junit.jupiter.api.io.TempDir
-import org.opentest4j.AssertionFailedError
 
 internal class BandcampFeedServerKtTest {
 
   @Test
   fun testEte(@TempDir tempDir: Path) {
     val dbPath = tempDir.resolve("db.sqlite")
-    val url = "jdbc:sqlite:${dbPath}"
+    val dbUrl = "jdbc:sqlite:${dbPath}"
     runBlocking {
       val bandcampClient = BandcampClient()
-      val storage: Storage = SqlStorage(url)
-      Flyway.configure().dataSource(url, "", "").load().migrate()
+      val storage: Storage = SqlStorage(dbUrl)
 
-      updatePrefixesInBackground(storage, bandcampClient)
+      updatePrefixesInBackground(storage, dbUrl, bandcampClient)
 
       val feedId =
           storage.saveFeed(

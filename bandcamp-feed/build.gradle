@@ -57,6 +57,7 @@ jooq {
 
 dependencies {
     implementation libs.apache.commons.text
+    implementation libs.flyway
     implementation libs.guava
     implementation libs.jsoup
     implementation libs.kotlin.stdlib
@@ -71,7 +72,6 @@ dependencies {
     implementation libs.sqlite
 
     testImplementation 'org.jetbrains.kotlin:kotlin-test'
-    testImplementation libs.flyway
 }
 
 test {

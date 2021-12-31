@@ -8,13 +8,13 @@ import io.ktor.http.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.netty.*
+import kotlinx.html.iframe
+import kotlinx.html.stream.appendHTML
+import org.slf4j.LoggerFactory
 import java.io.OutputStreamWriter
 import java.net.URI
 import java.time.ZoneOffset
 import java.util.*
-import kotlinx.html.iframe
-import kotlinx.html.stream.appendHTML
-import org.slf4j.LoggerFactory
 
 object BandcampFeedServer {
   val log = LoggerFactory.getLogger(BandcampFeedServer::class.java)
@@ -53,9 +53,10 @@ fun main(args: Array<String>): Unit = EngineMain.main(args)
 fun Application.module() {
   val bandcampClient = BandcampClient()
   val dbPath = environment.config.property("ktor.dbPath").getString()
-  val storage: Storage = SqlStorage("jdbc:sqlite:$dbPath")
+  val dbUrl = "jdbc:sqlite:$dbPath"
+  val storage: Storage = SqlStorage(dbUrl)
 
-  updatePrefixesInBackground(storage, bandcampClient)
+  updatePrefixesInBackground(storage, dbUrl, bandcampClient)
 
   routing {
     post("/feeds") {
