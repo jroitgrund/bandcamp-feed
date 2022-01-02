@@ -5,6 +5,7 @@ import io.ktor.http.*
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 
 private val INTERMEDIATE_RELEASE =
@@ -36,6 +37,15 @@ internal class BandcampClientTest {
               LocalDate.of(2019, 2, 10),
               BandcampPrefix("danzanativa")),
           BandcampClient().getRelease(INTERMEDIATE_RELEASE))
+    }
+  }
+
+  @Test
+  fun getArtistsAndLabels() {
+    runBlocking {
+      assertTrue {
+        BandcampClient().getArtistsAndLabels("jroitgrund").contains(BandcampPrefix("koseifukuda"))
+      }
     }
   }
 }
