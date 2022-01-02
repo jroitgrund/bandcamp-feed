@@ -59,7 +59,7 @@ fun Application.module() {
   val dbUrl = "jdbc:sqlite:$dbPath"
   val storage: Storage = SqlStorage(dbUrl)
 
-  check(Flyway.configure().dataSource(dbUrl, "", "").load().migrate().migrations.size == 2)
+  Flyway.configure().dataSource(dbUrl, "", "").load().migrate()
   updatePrefixesInBackground(storage, bandcampClient)
 
   routing {
