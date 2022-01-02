@@ -6,9 +6,8 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flowOf
-import org.flywaydb.core.Flyway
 
-fun updatePrefixesInBackground(storage: Storage, dbUrl: String, bandcampClient: BandcampClient) {
+fun updatePrefixesInBackground(storage: Storage, bandcampClient: BandcampClient) {
   CoroutineScope(
           Dispatchers.Default +
               Job() +
@@ -16,7 +15,6 @@ fun updatePrefixesInBackground(storage: Storage, dbUrl: String, bandcampClient: 
                 BandcampFeedServer.log.error("Unrecoverable error", t)
               })
       .launch {
-        Flyway.configure().dataSource(dbUrl, "", "").load().migrate()
         var prefix: BandcampPrefix? = null
         while (true) {
           try {

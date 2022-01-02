@@ -21,7 +21,7 @@ import org.jsoup.Jsoup
 
 private val ITEM_ID_PATTERN: Pattern = Pattern.compile("(album|track)-(.*)")
 private val TITLE_PATTERN: Pattern = Pattern.compile("^(.*) <br>.*> (.*) </span")
-private val DATE_PATTERN: Pattern = Pattern.compile("(released|releases) (.*)\n")
+private val DATE_PATTERN: Pattern = Pattern.compile("(released|releases) (\\d.*)\n")
 private val DATE_FORMAT: DateTimeFormatter =
     DateTimeFormatterBuilder()
         .appendValue(ChronoField.DAY_OF_MONTH, 2)

@@ -2,14 +2,15 @@ package me.roitgrund.bandcampfeed
 
 import BandcampClient
 import io.ktor.http.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import org.flywaydb.core.Flyway
+import org.junit.jupiter.api.io.TempDir
+import org.opentest4j.AssertionFailedError
 import java.nio.file.Path
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.io.TempDir
-import org.opentest4j.AssertionFailedError
 
 internal class BandcampFeedServerKtTest {
 
@@ -21,7 +22,8 @@ internal class BandcampFeedServerKtTest {
       val bandcampClient = BandcampClient()
       val storage: Storage = SqlStorage(dbUrl)
 
-      updatePrefixesInBackground(storage, dbUrl, bandcampClient)
+      check(Flyway.configure().dataSource(dbUrl, "", "").load().migrate().migrations.size == 2)
+      updatePrefixesInBackground(storage, bandcampClient)
 
       val feedId =
           storage.saveFeed(

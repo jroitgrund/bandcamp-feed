@@ -73,7 +73,7 @@ class SqlStorage(val url: String) : Storage {
         release.releaseDate = bandcampRelease.date.toString()
         release.store()
 
-        val joinRecord = dsl.newRecord(ReleasesPrefixes.RELEASES_PREFIXES)
+        val joinRecord = dsl.newRecord(ReleasesPrefixesV2.RELEASES_PREFIXES_V2)
         joinRecord.releaseId = bandcampRelease.id
         joinRecord.bandcampPrefix = bandcampPrefix.prefix
         joinRecord.store()
@@ -88,13 +88,16 @@ class SqlStorage(val url: String) : Storage {
               .from(Feeds.FEEDS)
               .join(FeedsPrefixes.FEEDS_PREFIXES)
               .on(Feeds.FEEDS.FEED_ID.eq(FeedsPrefixes.FEEDS_PREFIXES.FEED_ID))
-              .join(ReleasesPrefixes.RELEASES_PREFIXES)
+              .join(ReleasesPrefixesV2.RELEASES_PREFIXES_V2)
               .on(
                   FeedsPrefixes.FEEDS_PREFIXES.BANDCAMP_PREFIX.eq(
-                      ReleasesPrefixes.RELEASES_PREFIXES.BANDCAMP_PREFIX))
+                      ReleasesPrefixesV2.RELEASES_PREFIXES_V2.BANDCAMP_PREFIX))
               .join(Releases.RELEASES)
-              .on(ReleasesPrefixes.RELEASES_PREFIXES.RELEASE_ID.eq(Releases.RELEASES.RELEASE_ID))
+              .on(
+                  ReleasesPrefixesV2.RELEASES_PREFIXES_V2.RELEASE_ID.eq(
+                      Releases.RELEASES.RELEASE_ID))
               .where(Feeds.FEEDS.FEED_ID.eq(feedId.id.toString()))
+              .orderBy(DSL.field("DATE(${Releases.RELEASES.RELEASE_DATE.name}) DESC"))
               .fetch()
               .toList()
       if (releases.isEmpty()) {
@@ -120,9 +123,9 @@ class SqlStorage(val url: String) : Storage {
                       releaseRecord.title,
                       releaseRecord.artist,
                       LocalDate.parse(releaseRecord.releaseDate),
-                      BandcampPrefix(it.into(ReleasesPrefixes.RELEASES_PREFIXES).bandcampPrefix))
+                      BandcampPrefix(
+                          it.into(ReleasesPrefixesV2.RELEASES_PREFIXES_V2).bandcampPrefix))
                 }
-                .sortedByDescending { it.date }
                 .toList())
       }
     }

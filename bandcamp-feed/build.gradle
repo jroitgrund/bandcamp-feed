@@ -49,6 +49,9 @@ jooq {
                         packageName = 'me.roitgrund.bandcampfeed.sql'
                     }
                     strategy.name = 'org.jooq.codegen.DefaultGeneratorStrategy'
+                    database {
+                        excludes = 'flyway_schema_history'
+                    }
                 }
             }
         }
@@ -66,9 +69,9 @@ dependencies {
     implementation libs.ktor.core
     implementation libs.ktor.html.builder
     implementation libs.ktor.netty
+    implementation libs.log4j.slf4j18.impl
     implementation libs.rome
     implementation libs.slf4j.api
-    implementation libs.slf4j.simple
     implementation libs.sqlite
 
     testImplementation 'org.jetbrains.kotlin:kotlin-test'
