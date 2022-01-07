@@ -9,6 +9,7 @@ plugins {
     id 'nu.studer.jooq' version '6.0.1'
     id 'com.bmuschko.docker-java-application' version '7.1.0'
     id 'application'
+    id 'org.jetbrains.kotlin.plugin.serialization' version '1.6.10'
 }
 
 apply plugin: "org.flywaydb.flyway"
@@ -65,11 +66,15 @@ dependencies {
     implementation libs.jackson.module.kotlin
     implementation libs.jsoup
     implementation libs.kotlin.stdlib
+    implementation libs.ktor.auth
     implementation libs.ktor.client.cio
     implementation libs.ktor.client.core
+    implementation libs.ktor.client.serialization
     implementation libs.ktor.core
+    implementation libs.ktor.locations
     implementation libs.ktor.html.builder
     implementation libs.ktor.netty
+    implementation libs.ktor.server.sessions
     implementation libs.log4j.slf4j18.impl
     implementation libs.rome
     implementation libs.slf4j.api

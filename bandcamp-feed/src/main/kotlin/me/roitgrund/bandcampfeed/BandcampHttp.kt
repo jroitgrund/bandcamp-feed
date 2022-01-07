@@ -1,14 +1,18 @@
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.fasterxml.jackson.annotation.JsonProperty
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.google.common.base.Suppliers
 import com.google.common.util.concurrent.RateLimiter
 import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import kotlinx.coroutines.delay
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import me.roitgrund.bandcampfeed.BandcampPrefix
+import me.roitgrund.bandcampfeed.BandcampRelease
+import me.roitgrund.bandcampfeed.BandcampReleaseIntermediate
+import org.apache.commons.text.StringEscapeUtils
+import org.jsoup.Jsoup
 import java.net.URI
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -17,15 +21,7 @@ import java.time.format.TextStyle
 import java.time.temporal.ChronoField
 import java.util.*
 import java.util.regex.Pattern
-import kotlinx.coroutines.delay
-import me.roitgrund.bandcampfeed.BandcampPrefix
-import me.roitgrund.bandcampfeed.BandcampRelease
-import me.roitgrund.bandcampfeed.BandcampReleaseIntermediate
-import org.apache.commons.text.StringEscapeUtils
-import org.jsoup.Jsoup
 
-private val OBJECT_MAPPER = Suppliers.memoize(::jacksonObjectMapper)
-private val URL_PREFIX_PATTERN: Pattern = Pattern.compile("://(.*).bandcamp.com")
 private val ITEM_ID_PATTERN: Pattern = Pattern.compile("(album|track)-(.*)")
 private val TITLE_PATTERN: Pattern = Pattern.compile("^(.*) <br>.*> (.*) </span")
 private val DATE_PATTERN: Pattern = Pattern.compile("(released|releases) (\\d.*)\n")
@@ -42,40 +38,40 @@ fun releaseListUrl(bandcampPrefix: BandcampPrefix): Url {
   return Url("https://${bandcampPrefix.prefix}.bandcamp.com/music")
 }
 
-@JsonIgnoreProperties(ignoreUnknown = true)
+@Serializable
 private data class PageData(
-    @JsonProperty("following_bands_data") val followingBandsData: FollowingBandsData,
-    @JsonProperty("fan_data") val fanData: FanData
+    @SerialName("following_bands_data") val followingBandsData: FollowingBandsData,
+    @SerialName("fan_data") val fanData: FanData
 )
 
-@JsonIgnoreProperties(ignoreUnknown = true)
-private data class FanData(@JsonProperty("fan_id") val fanId: Int)
+@Serializable private data class FanData(@SerialName("fan_id") val fanId: Int)
 
-@JsonIgnoreProperties(ignoreUnknown = true)
-private data class FollowingBandsData(@JsonProperty("last_token") val lastToken: String)
+@Serializable
+private data class FollowingBandsData(@SerialName("last_token") val lastToken: String)
 
+@Serializable
 private data class FollowingBandsRequest(
-    @JsonProperty("fan_id") val fanId: Int,
-    @JsonProperty("older_than_token") val olderThanToken: String,
+    @SerialName("fan_id") val fanId: Int,
+    @SerialName("older_than_token") val olderThanToken: String,
     val count: Int
 )
 
-@JsonIgnoreProperties(ignoreUnknown = true)
+@Serializable
 private data class FollowingBandsResponse(
-    @JsonProperty("followeers") val followers: List<Follower>,
+    @SerialName("followeers") val followers: List<Follower>,
 )
 
-@JsonIgnoreProperties(ignoreUnknown = true)
+@Serializable
 private data class Follower(
-    @JsonProperty("url_hints") val urlHints: UrlHints,
+    @SerialName("url_hints") val urlHints: UrlHints,
 )
 
-@JsonIgnoreProperties(ignoreUnknown = true)
+@Serializable
 private data class UrlHints(
-    @JsonProperty("subdomain") val bandcampPrefix: String,
+    @SerialName("subdomain") val bandcampPrefix: String,
 )
 
-class BandcampClient {
+class BandcampClient(private val json: Json, private val client: HttpClient) {
   private val rateLimiter = RateLimiter.create(2.0)
   @Volatile private var highPriActionsOngoing: Int = 0
 
@@ -96,42 +92,38 @@ class BandcampClient {
     return action()
   }
 
+  private suspend fun <T> useClient(withClient: (suspend (client: HttpClient) -> T)): T {
+    while (!rateLimiter.tryAcquire()) {
+      delay(100L)
+    }
+
+    return withClient(client)
+  }
+
   private suspend fun getHtml(url: Url): String {
     while (!rateLimiter.tryAcquire()) {
       delay(100L)
     }
 
-    return HttpClient(CIO).use { it.get<HttpStatement>(url).receive() }
+    return useClient { it.get<HttpStatement>(url).receive() }
   }
 
   suspend fun getArtistsAndLabels(username: String): List<BandcampPrefix> {
     return hiPri {
       val parsedPage =
           Jsoup.parse(getHtml(Url("https://bandcamp.com/${username}/following/artists_and_labels")))
-      val pageData =
-          OBJECT_MAPPER
-              .get()
-              .readValue(
-                  StringEscapeUtils.unescapeHtml4(parsedPage.select("#pagedata").attr("data-blob")),
-                  PageData::class.java)
+      val pageData: PageData =
+          json.decodeFromString(
+              StringEscapeUtils.unescapeHtml4(parsedPage.select("#pagedata").attr("data-blob")))
       val fanId = pageData.fanData.fanId
 
-      OBJECT_MAPPER
-          .get()
-          .readValue(
-              HttpClient(CIO)
-                  .use<HttpClient, HttpResponse> {
-                    it.post("https://bandcamp.com/api/fancollection/1/following_bands") {
-                      body =
-                          OBJECT_MAPPER
-                              .get()
-                              .writeValueAsString(
-                                  FollowingBandsRequest(
-                                      fanId, "9999999999:9999999999", Int.MAX_VALUE))
-                    }
-                  }
-                  .receive<String>(),
-              FollowingBandsResponse::class.java)
+      useClient {
+            it.post<FollowingBandsResponse>(
+                "https://bandcamp.com/api/fancollection/1/following_bands") {
+              contentType(ContentType.Application.Json)
+              body = FollowingBandsRequest(fanId, "9999999999:9999999999", Int.MAX_VALUE)
+            }
+          }
           .followers
           .asSequence()
           .map { BandcampPrefix(it.urlHints.bandcampPrefix) }
