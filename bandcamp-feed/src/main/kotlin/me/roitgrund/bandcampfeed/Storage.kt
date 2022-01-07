@@ -1,9 +1,14 @@
 package me.roitgrund.bandcampfeed
 
+import com.google.common.base.Suppliers
 import io.ktor.http.*
+import java.sql.Connection
+import java.sql.DriverManager
 import java.time.LocalDate
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
+import java.util.function.Supplier
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import me.roitgrund.bandcampfeed.sql.tables.*
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
@@ -15,16 +20,22 @@ data class FeedID(val id: UUID)
 data class ReleaseId(val id: String)
 
 interface Storage {
-  fun saveFeed(name: String, bandcampPrefixes: Set<BandcampPrefix>): FeedID
-  fun addRelease(bandcampPrefix: BandcampPrefix, bandcampRelease: BandcampRelease)
+  suspend fun saveFeed(name: String, bandcampPrefixes: Set<BandcampPrefix>): FeedID
+  suspend fun addRelease(bandcampPrefix: BandcampPrefix, bandcampRelease: BandcampRelease)
 
-  fun getFeedReleases(feedId: FeedID): Pair<String, List<BandcampRelease>>?
-  fun isReleasePresent(releaseId: ReleaseId): Boolean
-  fun getNextPrefix(prefix: BandcampPrefix?): BandcampPrefix?
+  suspend fun getFeedReleases(feedId: FeedID): Pair<String, List<BandcampRelease>>?
+  suspend fun isReleasePresent(releaseId: ReleaseId): Boolean
+  suspend fun getNextPrefix(prefix: BandcampPrefix?): BandcampPrefix?
 }
 
-class SqlStorage(val url: String) : Storage {
-  override fun saveFeed(name: String, bandcampPrefixes: Set<BandcampPrefix>): FeedID {
+class SqlStorage : Storage {
+  private val mutex = Mutex()
+  private val connection: Supplier<Connection>
+
+  constructor(url: String) {
+    connection = Suppliers.memoize { DriverManager.getConnection(url) }
+  }
+  override suspend fun saveFeed(name: String, bandcampPrefixes: Set<BandcampPrefix>): FeedID {
     return runWithConnection { c ->
       c.transactionResult { tx ->
         val dsl = DSL.using(tx)
@@ -61,7 +72,10 @@ class SqlStorage(val url: String) : Storage {
     }
   }
 
-  override fun addRelease(bandcampPrefix: BandcampPrefix, bandcampRelease: BandcampRelease) {
+  override suspend fun addRelease(
+      bandcampPrefix: BandcampPrefix,
+      bandcampRelease: BandcampRelease
+  ) {
     runWithConnection { c ->
       c.transaction { tx ->
         val dsl = DSL.using(tx)
@@ -81,7 +95,7 @@ class SqlStorage(val url: String) : Storage {
     }
   }
 
-  override fun getFeedReleases(feedId: FeedID): Pair<String, List<BandcampRelease>>? {
+  override suspend fun getFeedReleases(feedId: FeedID): Pair<String, List<BandcampRelease>>? {
     return runWithConnection { c ->
       val releases =
           c.select(asterisk())
@@ -97,7 +111,6 @@ class SqlStorage(val url: String) : Storage {
                   ReleasesPrefixesV2.RELEASES_PREFIXES_V2.RELEASE_ID.eq(
                       Releases.RELEASES.RELEASE_ID))
               .where(Feeds.FEEDS.FEED_ID.eq(feedId.id.toString()))
-              .orderBy(DSL.field("DATE(${Releases.RELEASES.RELEASE_DATE.name}) DESC"))
               .fetch()
               .toList()
       if (releases.isEmpty()) {
@@ -126,12 +139,13 @@ class SqlStorage(val url: String) : Storage {
                       BandcampPrefix(
                           it.into(ReleasesPrefixesV2.RELEASES_PREFIXES_V2).bandcampPrefix))
                 }
+                .sortedByDescending(BandcampRelease::date)
                 .toList())
       }
     }
   }
 
-  override fun isReleasePresent(releaseId: ReleaseId): Boolean {
+  override suspend fun isReleasePresent(releaseId: ReleaseId): Boolean {
     return runWithConnection { c ->
       c.select(inline("1"))
           .from(Releases.RELEASES)
@@ -140,7 +154,7 @@ class SqlStorage(val url: String) : Storage {
     }
   }
 
-  override fun getNextPrefix(prefix: BandcampPrefix?): BandcampPrefix? {
+  override suspend fun getNextPrefix(prefix: BandcampPrefix?): BandcampPrefix? {
     return runWithConnection { c ->
       val fetchOne =
           c.select(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)
@@ -154,63 +168,7 @@ class SqlStorage(val url: String) : Storage {
     }
   }
 
-  private fun <T> runWithConnection(runnable: ((DSLContext) -> T)): T {
-    return DSL.using(url).run(runnable)
+  private suspend fun <T> runWithConnection(runnable: ((DSLContext) -> T)): T {
+    return mutex.withLock { DSL.using(connection.get()).run(runnable) }
   }
-}
-
-class InMemoryStorage : Storage {
-
-  private val feeds = ConcurrentHashMap<FeedID, Pair<String, Set<BandcampPrefix>>>()
-  private val releases = ConcurrentHashMap<ReleaseId, BandcampRelease>()
-  private val releasesByPrefix = ConcurrentHashMap<BandcampPrefix, MutableSet<ReleaseId>>()
-
-  override fun getNextPrefix(prefix: BandcampPrefix?): BandcampPrefix? {
-
-    return releasesByPrefix
-        .keys()
-        .asSequence()
-        .sortedBy { it.prefix }
-        .dropWhile { prefix != null && it.prefix <= prefix.prefix }
-        .firstOrNull()
-        ?: releasesByPrefix.keys().asSequence().sortedBy { it.prefix }.firstOrNull()
-  }
-
-  override fun saveFeed(name: String, bandcampPrefixes: Set<BandcampPrefix>): FeedID {
-    val feedId = FeedID(UUID.randomUUID())
-    feeds[feedId] = (name to bandcampPrefixes)
-    bandcampPrefixes.forEach { releasesByPrefix.putIfAbsent(it, ConcurrentHashMap.newKeySet()) }
-    return feedId
-  }
-
-  override fun addRelease(bandcampPrefix: BandcampPrefix, bandcampRelease: BandcampRelease) {
-    val releaseId = ReleaseId(bandcampRelease.id)
-    releases[releaseId] = bandcampRelease
-    releasesByPrefix
-        .computeIfAbsent(bandcampPrefix) { ConcurrentHashMap.newKeySet() }
-        .add(releaseId)
-  }
-
-  override fun getFeedReleases(feedId: FeedID): Pair<String, List<BandcampRelease>>? {
-    val feed = feeds[feedId] ?: return null
-    val (name, prefixes) = feed
-    return (name to
-        prefixes
-            .asSequence()
-            .flatMap { checkNotNull(releasesByPrefix[it]).asSequence() }
-            .map { checkNotNull(releases[it]) }
-            .groupBy { it.id }
-            .mapValues { it.value.first() }
-            .values
-            .sortedByDescending { it.date }
-            .toList())
-  }
-
-  override fun isReleasePresent(releaseId: ReleaseId): Boolean {
-    return releases.containsKey(releaseId)
-  }
-}
-
-fun runWithConnectionVoid(runnable: ((DSLContext) -> Unit)): Unit {
-  DSL.using("jdbc:sqlite:./bandcamp-feed.sqlite").run(runnable)
 }
