@@ -1,6 +1,10 @@
 package me.roitgrund.bandcampfeed
 
 import BandcampClient
+import io.ktor.client.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.features.json.*
+import io.ktor.client.features.json.serializer.*
 import io.ktor.http.*
 import java.nio.file.Path
 import java.time.LocalDate
@@ -8,9 +12,14 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.io.TempDir
 import org.opentest4j.AssertionFailedError
+
+private val JSON = Json { ignoreUnknownKeys = true }
+private val HTTP_CLIENT =
+    HttpClient(CIO) { install(JsonFeature) { serializer = KotlinxSerializer(JSON) } }
 
 internal class BandcampFeedServerKtTest {
 
@@ -19,15 +28,19 @@ internal class BandcampFeedServerKtTest {
     val dbPath = tempDir.resolve("db.sqlite")
     val dbUrl = "jdbc:sqlite:${dbPath}"
     runBlocking {
-      val bandcampClient = BandcampClient()
-      val storage: Storage = SqlStorage(dbUrl)
+      val bandcampClient = BandcampClient(JSON, HTTP_CLIENT)
+      val storage = SqlStorage(dbUrl)
 
-      Flyway.configure().dataSource(dbUrl, "", "").load().migrate().migrations.size
+      Flyway.configure().dataSource(dbUrl, "", "").load().migrate()
       updatePrefixesInBackground(storage, bandcampClient)
+
+      storage.saveUser("me@me.com")
 
       val feedId =
           storage.saveFeed(
-              "title", setOf(BandcampPrefix("romancemoderne"), BandcampPrefix("augurirecords")))
+              "title",
+              "me@me.com",
+              setOf(BandcampPrefix("romancemoderne"), BandcampPrefix("augurirecords")))
 
       (0..60).forEach { i ->
         try {

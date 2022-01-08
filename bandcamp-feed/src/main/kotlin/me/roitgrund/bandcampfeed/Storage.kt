@@ -19,23 +19,40 @@ data class FeedID(val id: UUID)
 
 data class ReleaseId(val id: String)
 
-interface Storage {
-  suspend fun saveFeed(name: String, bandcampPrefixes: Set<BandcampPrefix>): FeedID
-  suspend fun addRelease(bandcampPrefix: BandcampPrefix, bandcampRelease: BandcampRelease)
-
-  suspend fun getFeedReleases(feedId: FeedID): Pair<String, List<BandcampRelease>>?
-  suspend fun isReleasePresent(releaseId: ReleaseId): Boolean
-  suspend fun getNextPrefix(prefix: BandcampPrefix?): BandcampPrefix?
-}
-
-class SqlStorage : Storage {
+class SqlStorage {
   private val mutex = Mutex()
   private val connection: Supplier<Connection>
 
   constructor(url: String) {
     connection = Suppliers.memoize { DriverManager.getConnection(url) }
   }
-  override suspend fun saveFeed(name: String, bandcampPrefixes: Set<BandcampPrefix>): FeedID {
+
+  suspend fun saveUser(email: String) {
+    runWithConnection { c ->
+      val user = c.newRecord(Users.USERS)
+      user.userEmail = email
+      c.insertInto(Users.USERS).set(user).onDuplicateKeyIgnore().execute()
+    }
+  }
+
+  suspend fun getUserFeeds(email: String): Map<String, Set<BandcampPrefix>> {
+    return runWithConnection { c ->
+      c
+          .select(Feeds.FEEDS.FEED_NAME, FeedsPrefixes.FEEDS_PREFIXES.BANDCAMP_PREFIX)
+          .from(Users.USERS)
+          .join(Feeds.FEEDS)
+          .on(Users.USERS.USER_EMAIL.eq(Feeds.FEEDS.USER_EMAIL))
+          .join(FeedsPrefixes.FEEDS_PREFIXES)
+          .on(Feeds.FEEDS.FEED_ID.eq(FeedsPrefixes.FEEDS_PREFIXES.FEED_ID))
+          .where(Users.USERS.USER_EMAIL.eq(email))
+          .fetchGroups(Feeds.FEEDS.FEED_NAME, FeedsPrefixes.FEEDS_PREFIXES.BANDCAMP_PREFIX)
+          .mapValues { record ->
+            record.value.asSequence().map { prefix -> BandcampPrefix(prefix) }.toSet()
+          }
+    }
+  }
+
+  suspend fun saveFeed(name: String, email: String, bandcampPrefixes: Set<BandcampPrefix>): FeedID {
     return runWithConnection { c ->
       c.transactionResult { tx ->
         val dsl = DSL.using(tx)
@@ -55,6 +72,7 @@ class SqlStorage : Storage {
 
         val feed = dsl.newRecord(Feeds.FEEDS)
         feed.feedName = name
+        feed.userEmail = email
         feed.feedId = feedId.id.toString()
         feed.store()
 
@@ -72,10 +90,52 @@ class SqlStorage : Storage {
     }
   }
 
-  override suspend fun addRelease(
-      bandcampPrefix: BandcampPrefix,
-      bandcampRelease: BandcampRelease
-  ) {
+  suspend fun editFeed(
+      feedId: FeedID,
+      name: String,
+      email: String,
+      bandcampPrefixes: Set<BandcampPrefix>
+  ): Boolean {
+    return runWithConnection { c ->
+      c.transactionResult { tx ->
+        val dsl = DSL.using(tx)
+        val existingEmail =
+            dsl.select(Feeds.FEEDS.USER_EMAIL)
+                .from(Feeds.FEEDS)
+                .where(Feeds.FEEDS.FEED_ID.eq(feedId.id.toString()))
+                .fetchOne()
+                ?.component1()
+        if (existingEmail == null || email != existingEmail) {
+          false
+        } else {
+          dsl.deleteFrom(FeedsPrefixes.FEEDS_PREFIXES)
+              .where(FeedsPrefixes.FEEDS_PREFIXES.FEED_ID.eq(feedId.id.toString()))
+              .execute()
+          dsl.batchStore(
+                  bandcampPrefixes.map {
+                    val feedPrefix = dsl.newRecord(FeedsPrefixes.FEEDS_PREFIXES)
+                    feedPrefix.bandcampPrefix = it.prefix
+                    feedPrefix.feedId = feedId.id.toString()
+                    feedPrefix
+                  })
+              .execute()
+          dsl.update(Feeds.FEEDS)
+              .set(Feeds.FEEDS.FEED_NAME, name)
+              .where(Feeds.FEEDS.FEED_ID.eq(feedId.id.toString()))
+              .execute()
+          true
+        }
+      }
+    }
+  }
+
+  suspend fun deleteFeed(feedId: FeedID) {
+    return runWithConnection { c ->
+      c.deleteFrom(Feeds.FEEDS).where(Feeds.FEEDS.FEED_ID.eq(feedId.id.toString())).execute()
+    }
+  }
+
+  suspend fun addRelease(bandcampPrefix: BandcampPrefix, bandcampRelease: BandcampRelease) {
     runWithConnection { c ->
       c.transaction { tx ->
         val dsl = DSL.using(tx)
@@ -87,7 +147,7 @@ class SqlStorage : Storage {
         release.releaseDate = bandcampRelease.date.toString()
         release.store()
 
-        val joinRecord = dsl.newRecord(ReleasesPrefixesV2.RELEASES_PREFIXES_V2)
+        val joinRecord = dsl.newRecord(ReleasesPrefixes.RELEASES_PREFIXES)
         joinRecord.releaseId = bandcampRelease.id
         joinRecord.bandcampPrefix = bandcampPrefix.prefix
         joinRecord.store()
@@ -95,21 +155,19 @@ class SqlStorage : Storage {
     }
   }
 
-  override suspend fun getFeedReleases(feedId: FeedID): Pair<String, List<BandcampRelease>>? {
+  suspend fun getFeedReleases(feedId: FeedID): Pair<String, List<BandcampRelease>>? {
     return runWithConnection { c ->
       val releases =
           c.select(asterisk())
               .from(Feeds.FEEDS)
               .join(FeedsPrefixes.FEEDS_PREFIXES)
               .on(Feeds.FEEDS.FEED_ID.eq(FeedsPrefixes.FEEDS_PREFIXES.FEED_ID))
-              .join(ReleasesPrefixesV2.RELEASES_PREFIXES_V2)
+              .join(ReleasesPrefixes.RELEASES_PREFIXES)
               .on(
                   FeedsPrefixes.FEEDS_PREFIXES.BANDCAMP_PREFIX.eq(
-                      ReleasesPrefixesV2.RELEASES_PREFIXES_V2.BANDCAMP_PREFIX))
+                      ReleasesPrefixes.RELEASES_PREFIXES.BANDCAMP_PREFIX))
               .join(Releases.RELEASES)
-              .on(
-                  ReleasesPrefixesV2.RELEASES_PREFIXES_V2.RELEASE_ID.eq(
-                      Releases.RELEASES.RELEASE_ID))
+              .on(ReleasesPrefixes.RELEASES_PREFIXES.RELEASE_ID.eq(Releases.RELEASES.RELEASE_ID))
               .where(Feeds.FEEDS.FEED_ID.eq(feedId.id.toString()))
               .fetch()
               .toList()
@@ -136,8 +194,7 @@ class SqlStorage : Storage {
                       releaseRecord.title,
                       releaseRecord.artist,
                       LocalDate.parse(releaseRecord.releaseDate),
-                      BandcampPrefix(
-                          it.into(ReleasesPrefixesV2.RELEASES_PREFIXES_V2).bandcampPrefix))
+                      BandcampPrefix(it.into(ReleasesPrefixes.RELEASES_PREFIXES).bandcampPrefix))
                 }
                 .sortedByDescending(BandcampRelease::date)
                 .toList())
@@ -145,7 +202,7 @@ class SqlStorage : Storage {
     }
   }
 
-  override suspend fun isReleasePresent(releaseId: ReleaseId): Boolean {
+  suspend fun isReleasePresent(releaseId: ReleaseId): Boolean {
     return runWithConnection { c ->
       c.select(inline("1"))
           .from(Releases.RELEASES)
@@ -154,7 +211,7 @@ class SqlStorage : Storage {
     }
   }
 
-  override suspend fun getNextPrefix(prefix: BandcampPrefix?): BandcampPrefix? {
+  suspend fun getNextPrefix(prefix: BandcampPrefix?): BandcampPrefix? {
     return runWithConnection { c ->
       val fetchOne =
           c.select(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)

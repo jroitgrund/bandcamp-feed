@@ -2,7 +2,8 @@ package me.roitgrund.bandcampfeed
 
 import BandcampClient
 import com.google.common.io.BaseEncoding
-import com.sun.syndication.feed.synd.*
+import com.sun.syndication.feed.synd.SyndFeed
+import com.sun.syndication.feed.synd.SyndFeedImpl
 import com.sun.syndication.io.SyndFeedOutput
 import io.ktor.application.*
 import io.ktor.auth.*
@@ -19,50 +20,19 @@ import io.ktor.locations.post
 import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
+import io.ktor.serialization.*
 import io.ktor.server.netty.*
 import io.ktor.sessions.*
+import java.io.OutputStreamWriter
+import java.util.*
 import kotlinx.html.*
-import kotlinx.html.stream.appendHTML
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.flywaydb.core.Flyway
 import org.slf4j.LoggerFactory
-import java.io.OutputStreamWriter
-import java.net.URI
-import java.time.ZoneOffset
-import java.util.*
 
 object BandcampFeedServer {
   val log = LoggerFactory.getLogger(BandcampFeedServer::class.java)
-}
-
-fun playerUrl(bandcampRelease: BandcampRelease): URI {
-  return URI(
-      "https://bandcamp.com/EmbeddedPlayer/v=2/album=${bandcampRelease.id}/size=large/tracklist=true/artwork=small/")
-}
-
-fun entry(bandcampRelease: BandcampRelease): SyndEntry {
-  val entry = SyndEntryImpl()
-  entry.title =
-      "(${bandcampRelease.prefix.prefix}) ${bandcampRelease.artist} - ${bandcampRelease.title}"
-  entry.link = bandcampRelease.url.toString()
-  entry.publishedDate = Date.from(bandcampRelease.date.atStartOfDay().toInstant(ZoneOffset.UTC))
-
-  val description = SyndContentImpl()
-  description.type = "text/html"
-  description.value =
-      StringBuilder()
-          .appendHTML()
-          .iframe {
-            src = playerUrl(bandcampRelease).toString()
-            height = "400px"
-            width = "400px"
-          }
-          .toString()
-
-  entry.description = description
-
-  return entry
 }
 
 fun main(args: Array<String>): Unit = EngineMain.main(args)
@@ -89,9 +59,12 @@ fun ApplicationCall.getUrl(path: String): String {
 
 @Serializable data class UserSession(val email: String)
 
+@Serializable data class FeedRequest(val name: String, val prefixes: Set<String>)
+
 fun Application.module() {
-  val json = Json { ignoreUnknownKeys = true }
-  val httpClient = HttpClient(CIO) { install(JsonFeature) { serializer = KotlinxSerializer(json) } }
+  val jsonSerializer = Json { ignoreUnknownKeys = true }
+  val httpClient =
+      HttpClient(CIO) { install(JsonFeature) { serializer = KotlinxSerializer(jsonSerializer) } }
 
   install(Locations)
   install(XForwardedHeaderSupport)
@@ -119,12 +92,13 @@ fun Application.module() {
           }
       client = httpClient
     }
+    install(ContentNegotiation) { json() }
   }
 
-  val bandcampClient = BandcampClient(json, httpClient)
+  val bandcampClient = BandcampClient(jsonSerializer, httpClient)
   val dbPath = environment.config.property("ktor.dbPath").getString()
   val dbUrl = "jdbc:sqlite:$dbPath"
-  val storage: Storage = SqlStorage(dbUrl)
+  val storage = SqlStorage(dbUrl)
 
   Flyway.configure().dataSource(dbUrl, "", "").load().migrate()
   updatePrefixesInBackground(storage, bandcampClient)
@@ -146,19 +120,37 @@ fun Application.module() {
     }
 
     post<NewFeed> {
-      var parameters = call.receiveParameters()
-      call.respondText {
-        call.getUrl(
-            application.locations.href(
-                Feed(
-                    storage
-                        .saveFeed(
-                            checkNotNull(parameters["name"]),
-                            checkNotNull(parameters.getAll("prefixes"))
-                                .map(::BandcampPrefix)
-                                .toSet())
-                        .id
-                        .toString())))
+      val session = call.sessions.get<UserSession>()
+      if (session == null) {
+        call.respondRedirect(application.locations.href(Login()))
+      } else {
+        var newFeedRequest = call.receive<FeedRequest>()
+        call.respond(
+            storage
+                .saveFeed(
+                    newFeedRequest.name,
+                    session.email,
+                    newFeedRequest.prefixes.map(::BandcampPrefix).toSet())
+                .id
+                .toString())
+      }
+    }
+
+    post<Feed> { feedRequest ->
+      val session = call.sessions.get<UserSession>()
+      if (session == null) {
+        call.respondRedirect(application.locations.href(Login()))
+      } else {
+        var feedRequestBody = call.receive<FeedRequest>()
+        if (!storage.editFeed(
+            FeedID(UUID.fromString(feedRequest.feedId)),
+            feedRequestBody.name,
+            session.email,
+            feedRequestBody.prefixes.map(::BandcampPrefix).toSet())) {
+          call.response.status(HttpStatusCode.NotFound)
+        } else {
+          call.response.status(HttpStatusCode.OK)
+        }
       }
     }
 

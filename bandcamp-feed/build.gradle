@@ -74,6 +74,7 @@ dependencies {
     implementation libs.ktor.locations
     implementation libs.ktor.html.builder
     implementation libs.ktor.netty
+    implementation libs.ktor.serialization
     implementation libs.ktor.server.sessions
     implementation libs.log4j.slf4j18.impl
     implementation libs.rome

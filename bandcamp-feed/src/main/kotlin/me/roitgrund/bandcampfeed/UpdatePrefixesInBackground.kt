@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flowOf
 
-fun updatePrefixesInBackground(storage: Storage, bandcampClient: BandcampClient) {
+fun updatePrefixesInBackground(storage: SqlStorage, bandcampClient: BandcampClient) {
   CoroutineScope(
           Dispatchers.Default +
               Job() +

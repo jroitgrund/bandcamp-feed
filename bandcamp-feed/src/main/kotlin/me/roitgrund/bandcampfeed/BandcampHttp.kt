@@ -3,6 +3,15 @@ import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import java.net.URI
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatterBuilder
+import java.time.format.TextStyle
+import java.time.temporal.ChronoField
+import java.util.*
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.regex.Pattern
 import kotlinx.coroutines.delay
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -13,14 +22,6 @@ import me.roitgrund.bandcampfeed.BandcampRelease
 import me.roitgrund.bandcampfeed.BandcampReleaseIntermediate
 import org.apache.commons.text.StringEscapeUtils
 import org.jsoup.Jsoup
-import java.net.URI
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeFormatterBuilder
-import java.time.format.TextStyle
-import java.time.temporal.ChronoField
-import java.util.*
-import java.util.regex.Pattern
 
 private val ITEM_ID_PATTERN: Pattern = Pattern.compile("(album|track)-(.*)")
 private val TITLE_PATTERN: Pattern = Pattern.compile("^(.*) <br>.*> (.*) </span")
@@ -73,38 +74,34 @@ private data class UrlHints(
 
 class BandcampClient(private val json: Json, private val client: HttpClient) {
   private val rateLimiter = RateLimiter.create(2.0)
-  @Volatile private var highPriActionsOngoing: Int = 0
+  private val highPriActionsOngoing = AtomicInteger()
 
   private suspend fun <T> hiPri(action: (suspend () -> T)): T {
-    highPriActionsOngoing++
+    highPriActionsOngoing.incrementAndGet()
     try {
       return action()
     } finally {
-      highPriActionsOngoing--
+      highPriActionsOngoing.decrementAndGet()
     }
   }
 
   private suspend fun <T> loPri(action: (suspend () -> T)): T {
-    while (highPriActionsOngoing > 0) {
+    while (highPriActionsOngoing.get() > 0) {
       delay(100L)
     }
 
     return action()
   }
 
-  private suspend fun <T> useClient(withClient: (suspend (client: HttpClient) -> T)): T {
+  private suspend fun <T> useClient(clientConsumer: (suspend (client: HttpClient) -> T)): T {
     while (!rateLimiter.tryAcquire()) {
       delay(100L)
     }
 
-    return withClient(client)
+    return clientConsumer(client)
   }
 
   private suspend fun getHtml(url: Url): String {
-    while (!rateLimiter.tryAcquire()) {
-      delay(100L)
-    }
-
     return useClient { it.get<HttpStatement>(url).receive() }
   }
 

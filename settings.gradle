@@ -36,6 +36,7 @@ dependencyResolutionManagement {
             alias('ktor-html-builder').to('io.ktor', 'ktor-html-builder').versionRef('ktor')
             alias('ktor-locations').to('io.ktor', 'ktor-locations').versionRef('ktor')
             alias('ktor-netty').to('io.ktor', 'ktor-server-netty').versionRef('ktor')
+            alias('ktor-serialization').to('io.ktor', 'ktor-serialization').versionRef('ktor')
             alias('ktor-server-sessions').to('io.ktor', 'ktor-server-sessions').versionRef('ktor')
             alias('log4j-slf4j18-impl').to('org.apache.logging.log4j', 'log4j-slf4j18-impl').versionRef('log4j')
             alias('playwright').to('com.microsoft.playwright', 'playwright').versionRef('playwright')
