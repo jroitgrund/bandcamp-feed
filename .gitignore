@@ -3,3 +3,4 @@
 build
 generated
 db.sqlite
+bandcamp-feed.nomad
