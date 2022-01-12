@@ -19,7 +19,7 @@ private val INTERMEDIATE_RELEASE =
         Url("https://danzanativa.bandcamp.com/album/a-vision-of-light"),
         "A Vision Of Light",
         "Forest On Stasys",
-        BandcampPrefix("danzanativa"))
+        "danzanativa")
 
 private val JSON = Json { ignoreUnknownKeys = true }
 private val HTTP_CLIENT =
@@ -30,8 +30,7 @@ internal class BandcampClientTest {
   fun getReleases() {
     runBlocking {
       assertEquals(
-          INTERMEDIATE_RELEASE,
-          BandcampClient(JSON, HTTP_CLIENT).getReleases(BandcampPrefix("danzanativa")).last())
+          INTERMEDIATE_RELEASE, BandcampClient(JSON, HTTP_CLIENT).getReleases("danzanativa").last())
     }
   }
 
@@ -45,7 +44,7 @@ internal class BandcampClientTest {
               "A Vision Of Light",
               "Forest On Stasys",
               LocalDate.of(2019, 2, 10),
-              BandcampPrefix("danzanativa")),
+              "danzanativa"),
           BandcampClient(JSON, HTTP_CLIENT).getRelease(INTERMEDIATE_RELEASE))
     }
   }
@@ -54,9 +53,7 @@ internal class BandcampClientTest {
   fun getArtistsAndLabels() {
     runBlocking {
       assertTrue {
-        BandcampClient(JSON, HTTP_CLIENT)
-            .getArtistsAndLabels("jroitgrund")
-            .contains(BandcampPrefix("koseifukuda"))
+        BandcampClient(JSON, HTTP_CLIENT).getArtistsAndLabels("jroitgrund").contains("koseifukuda")
       }
     }
   }

@@ -17,7 +17,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import me.roitgrund.bandcampfeed.BandcampPrefix
 import me.roitgrund.bandcampfeed.BandcampRelease
 import me.roitgrund.bandcampfeed.BandcampReleaseIntermediate
 import org.apache.commons.text.StringEscapeUtils
@@ -35,8 +34,8 @@ private val DATE_FORMAT: DateTimeFormatter =
         .appendValue(ChronoField.YEAR, 4)
         .toFormatter(Locale.ENGLISH)
 
-fun releaseListUrl(bandcampPrefix: BandcampPrefix): Url {
-  return Url("https://${bandcampPrefix.prefix}.bandcamp.com/music")
+fun releaseListUrl(bandcampPrefix: String): Url {
+  return Url("https://${bandcampPrefix}.bandcamp.com/music")
 }
 
 @Serializable
@@ -105,7 +104,7 @@ class BandcampClient(private val json: Json, private val client: HttpClient) {
     return useClient { it.get<HttpStatement>(url).receive() }
   }
 
-  suspend fun getArtistsAndLabels(username: String): List<BandcampPrefix> {
+  suspend fun getArtistsAndLabels(username: String): List<String> {
     return hiPri {
       val parsedPage =
           Jsoup.parse(getHtml(Url("https://bandcamp.com/${username}/following/artists_and_labels")))
@@ -123,13 +122,13 @@ class BandcampClient(private val json: Json, private val client: HttpClient) {
           }
           .followers
           .asSequence()
-          .map { BandcampPrefix(it.urlHints.bandcampPrefix) }
-          .sortedBy { it.prefix }
+          .map { it.urlHints.bandcampPrefix }
+          .sorted()
           .toList()
     }
   }
 
-  suspend fun getReleases(bandcampPrefix: BandcampPrefix): List<BandcampReleaseIntermediate> {
+  suspend fun getReleases(bandcampPrefix: String): List<BandcampReleaseIntermediate> {
     return loPri {
       Jsoup.parse(getHtml(releaseListUrl(bandcampPrefix)))
           .body()
@@ -188,12 +187,11 @@ private fun parseDate(metaDescription: String): LocalDate {
   return LocalDate.parse(datePart, DATE_FORMAT)
 }
 
-private fun cleanUpReleaseUri(releaseUri: String, bandcampPrefix: BandcampPrefix): String {
+private fun cleanUpReleaseUri(releaseUri: String, bandcampPrefix: String): String {
   val uri =
       URI(
           when {
-            releaseUri.startsWith("/") ->
-                "https://${bandcampPrefix.prefix}.bandcamp.com${releaseUri}"
+            releaseUri.startsWith("/") -> "https://${bandcampPrefix}.bandcamp.com${releaseUri}"
             else -> releaseUri
           })
   return URI(uri.scheme, uri.userInfo, uri.host, uri.port, uri.path, null, null).toString()

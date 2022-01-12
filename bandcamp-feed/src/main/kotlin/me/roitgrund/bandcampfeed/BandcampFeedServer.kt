@@ -13,10 +13,11 @@ import io.ktor.client.features.json.*
 import io.ktor.client.features.json.serializer.*
 import io.ktor.client.request.*
 import io.ktor.features.*
-import io.ktor.html.*
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.locations.*
 import io.ktor.locations.post
+import io.ktor.locations.put as locationsPut
 import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
@@ -24,28 +25,35 @@ import io.ktor.serialization.*
 import io.ktor.server.netty.*
 import io.ktor.sessions.*
 import java.io.OutputStreamWriter
-import java.util.*
-import kotlinx.html.*
+import java.nio.file.Paths
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.flywaydb.core.Flyway
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 object BandcampFeedServer {
-  val log = LoggerFactory.getLogger(BandcampFeedServer::class.java)
+  val log: Logger = LoggerFactory.getLogger(BandcampFeedServer::class.java)
 }
 
 fun main(args: Array<String>): Unit = EngineMain.main(args)
 
-@Location("/new-feed") class NewFeed
+class Locations {
 
-@Location("/feed/{feedId}") data class Feed(val feedId: String)
+  @Location("/new-feed") class NewFeed
 
-@Location("/user/{user}") data class User(val user: String)
+  @Location("/feed/{feedId}") data class Feed(val feedId: String)
 
-@Location("/oauth-callback") class OAuthCallback
+  @Location("/feeds") class Feeds
 
-@Location("/login") class Login
+  @Location("/user/{user}") data class User(val user: String)
+
+  @Location("/oauth-callback") class OAuthCallback
+
+  @Location("/login") class Login
+
+  @Location("/") class Home
+}
 
 fun ApplicationCall.getUrl(path: String): String {
   val call = this
@@ -56,6 +64,8 @@ fun ApplicationCall.getUrl(path: String): String {
     this.buildString()
   }
 }
+
+@Serializable data class UserFeed(val id: String, val name: String, val prefixes: Set<String>)
 
 @Serializable data class UserSession(val email: String)
 
@@ -70,6 +80,8 @@ fun Application.module() {
   install(XForwardedHeaderSupport)
   install(Sessions) {
     cookie<UserSession>("user_session") {
+      cookie.extensions["SameSite"] = "None"
+      cookie.extensions["Secure"] = "true"
       transform(
           SessionTransportTransformerMessageAuthentication(
               BaseEncoding.base64()
@@ -78,7 +90,7 @@ fun Application.module() {
   }
   install(Authentication) {
     oauth("auth-oauth-google") {
-      urlProvider = { this.getUrl(application.locations.href(OAuthCallback())) }
+      urlProvider = { this.getUrl(application.locations.href(Locations.OAuthCallback())) }
       providerLookup =
           {
             OAuthServerSettings.OAuth2ServerSettings(
@@ -105,8 +117,8 @@ fun Application.module() {
 
   routing {
     authenticate("auth-oauth-google") {
-      get<Login> {}
-      get<OAuthCallback> {
+      get<Locations.Login> {}
+      get<Locations.OAuthCallback> {
         val token = checkNotNull(call.principal<OAuthAccessTokenResponse.OAuth2>()).accessToken
         val email =
             httpClient
@@ -115,38 +127,45 @@ fun Application.module() {
                 }
                 .email
         call.sessions.set(UserSession(email))
-        call.respondRedirect(application.locations.href(User("jonathan")))
+        call.respondRedirect(application.locations.href(Locations.Home()))
       }
     }
 
-    post<NewFeed> {
+    get<Locations.Home> {
+      call.respondFile(Paths.get("./bandcamp-feed-fe/dist/index.html").toFile())
+    }
+
+    static("static") { files(Paths.get("./bandcamp-feed-fe/dist/").toFile()) }
+
+    get<Locations.Feeds> {
       val session = call.sessions.get<UserSession>()
       if (session == null) {
-        call.respondRedirect(application.locations.href(Login()))
+        call.response.status(HttpStatusCode.Unauthorized)
       } else {
-        var newFeedRequest = call.receive<FeedRequest>()
-        call.respond(
-            storage
-                .saveFeed(
-                    newFeedRequest.name,
-                    session.email,
-                    newFeedRequest.prefixes.map(::BandcampPrefix).toSet())
-                .id
-                .toString())
+        call.respond(storage.getUserFeeds(session.email))
       }
     }
 
-    post<Feed> { feedRequest ->
+    post<Locations.NewFeed> {
       val session = call.sessions.get<UserSession>()
       if (session == null) {
-        call.respondRedirect(application.locations.href(Login()))
+        call.response.status(HttpStatusCode.Unauthorized)
       } else {
-        var feedRequestBody = call.receive<FeedRequest>()
+        val newFeedRequest = call.receive<FeedRequest>()
+        check(newFeedRequest.prefixes.isNotEmpty())
+        storage.saveFeed(newFeedRequest.name, session.email, newFeedRequest.prefixes)
+        call.response.status(HttpStatusCode.OK)
+      }
+    }
+
+    locationsPut<Locations.Feed> { feedRequest ->
+      val session = call.sessions.get<UserSession>()
+      if (session == null) {
+        call.response.status(HttpStatusCode.Unauthorized)
+      } else {
+        val feedRequestBody = call.receive<FeedRequest>()
         if (!storage.editFeed(
-            FeedID(UUID.fromString(feedRequest.feedId)),
-            feedRequestBody.name,
-            session.email,
-            feedRequestBody.prefixes.map(::BandcampPrefix).toSet())) {
+            feedRequest.feedId, feedRequestBody.name, session.email, feedRequestBody.prefixes)) {
           call.response.status(HttpStatusCode.NotFound)
         } else {
           call.response.status(HttpStatusCode.OK)
@@ -154,15 +173,24 @@ fun Application.module() {
       }
     }
 
-    get<Feed> { feedRequest ->
+    get<Locations.User> { user ->
+      if (call.sessions.get<UserSession>() == null) {
+        call.response.status(HttpStatusCode.Unauthorized)
+      } else {
+        val prefixes = bandcampClient.getArtistsAndLabels(user.user)
+        call.respond(prefixes)
+      }
+    }
+
+    get<Locations.Feed> { feedRequest ->
       call.respondOutputStream(ContentType.Application.Rss) {
-        val feedId = FeedID(UUID.fromString(feedRequest.feedId))
+        val feedId = feedRequest.feedId
         val (name, releases) = checkNotNull(storage.getFeedReleases(feedId))
 
         val feed: SyndFeed = SyndFeedImpl()
 
         feed.title = name
-        feed.link = call.getUrl(application.locations.href(Feed(feedRequest.feedId)))
+        feed.link = call.getUrl(application.locations.href(Locations.Feed(feedRequest.feedId)))
         feed.description = name
         feed.entries = releases.map(::entry)
         feed.feedType = "rss_2.0"
@@ -170,50 +198,6 @@ fun Application.module() {
         val writer = OutputStreamWriter(this)
         val output = SyndFeedOutput()
         output.output(feed, writer)
-      }
-    }
-
-    get<User> { user ->
-      if (call.sessions.get<UserSession>() == null) {
-        call.respondRedirect(application.locations.href(Login()))
-      } else {
-
-        val prefixes = bandcampClient.getArtistsAndLabels(user.user)
-        call.respondHtml {
-          head { title { +"Create feed" } }
-          body {
-            form {
-              method = FormMethod.post
-              action = application.locations.href(NewFeed())
-              input {
-                name = "name"
-                type = InputType.text
-                placeholder = "Name..."
-              }
-              br {}
-              br {}
-              input {
-                type = InputType.submit
-                value = "Create feed"
-              }
-              br {}
-              br {}
-              prefixes.forEach {
-                input {
-                  type = InputType.checkBox
-                  name = "prefixes"
-                  id = it.prefix
-                  value = it.prefix
-                }
-                label {
-                  htmlFor = it.prefix
-                  +it.prefix
-                }
-                br {}
-              }
-            }
-          }
-        }
       }
     }
   }

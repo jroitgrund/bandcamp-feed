@@ -18,27 +18,20 @@ internal class SqlStorageTest {
 
       Flyway.configure().dataSource(dbUrl, "", "").load().migrate()
 
-      storage.saveUser("me@me.com")
+      assertEquals(listOf(), storage.getUserFeeds("me@me.com"))
 
-      assertEquals(mapOf(), storage.getUserFeeds("me@me.com"))
-
-      val feedId =
-          storage.saveFeed(
-              "title",
-              "me@me.com",
-              setOf(BandcampPrefix("romancemoderne"), BandcampPrefix("augurirecords")))
+      val feedId = storage.saveFeed("title", "me@me.com", setOf("romancemoderne", "augurirecords"))
 
       assertEquals(
-          mapOf(
-              "title" to setOf(BandcampPrefix("romancemoderne"), BandcampPrefix("augurirecords"))),
+          listOf(UserFeed(feedId, "title", setOf("romancemoderne", "augurirecords"))),
           storage.getUserFeeds("me@me.com"))
 
       assert(!storage.editFeed(feedId, "other-title", "not-me@me.com", setOf()))
 
-      assert(storage.editFeed(feedId, "other-title", "me@me.com", setOf(BandcampPrefix("haws"))))
+      assert(storage.editFeed(feedId, "other-title", "me@me.com", setOf("haws")))
 
       assertEquals(
-          mapOf("other-title" to setOf(BandcampPrefix("haws"))), storage.getUserFeeds("me@me.com"))
+          listOf(UserFeed(feedId, "other-title", setOf("haws"))), storage.getUserFeeds("me@me.com"))
     }
   }
 }

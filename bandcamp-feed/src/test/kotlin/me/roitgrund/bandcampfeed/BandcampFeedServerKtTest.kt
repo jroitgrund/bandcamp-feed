@@ -10,6 +10,7 @@ import java.nio.file.Path
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -23,6 +24,7 @@ private val HTTP_CLIENT =
 
 internal class BandcampFeedServerKtTest {
 
+  @FlowPreview
   @Test
   fun testEte(@TempDir tempDir: Path) {
     val dbPath = tempDir.resolve("db.sqlite")
@@ -34,13 +36,7 @@ internal class BandcampFeedServerKtTest {
       Flyway.configure().dataSource(dbUrl, "", "").load().migrate()
       updatePrefixesInBackground(storage, bandcampClient)
 
-      storage.saveUser("me@me.com")
-
-      val feedId =
-          storage.saveFeed(
-              "title",
-              "me@me.com",
-              setOf(BandcampPrefix("romancemoderne"), BandcampPrefix("augurirecords")))
+      val feedId = storage.saveFeed("title", "me@me.com", setOf("romancemoderne", "augurirecords"))
 
       (0..60).forEach { i ->
         try {
@@ -52,14 +48,14 @@ internal class BandcampFeedServerKtTest {
                       "Intensive Care, Vol. 1",
                       "Various",
                       LocalDate.parse("2020-04-01"),
-                      BandcampPrefix("augurirecords")),
+                      "augurirecords"),
                   BandcampRelease(
                       "3271455394",
                       Url("https://romancemoderne.bandcamp.com/album/lovers-revenge"),
                       "Lovers Revenge",
                       "LOVERS REVENGE",
                       LocalDate.parse("2015-01-22"),
-                      BandcampPrefix("romancemoderne"))),
+                      "romancemoderne")),
               checkNotNull(storage.getFeedReleases(feedId))
                   .second
                   .dropWhile { it.date.isAfter(LocalDate.parse("2020-04-01")) }

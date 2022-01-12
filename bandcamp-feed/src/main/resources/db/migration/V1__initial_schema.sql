@@ -1,13 +1,9 @@
-create table users (
-    user_email text not null primary key
-);
-
 create table feeds (
     feed_id text not null primary key,
     feed_name text not null,
-    user_email text not null,
-    foreign key (user_email) references users(user_email) on delete cascade
+    user_email text not null
 );
+create index feeds_user_email ON feeds(user_email);
 
 create table bandcamp_prefixes (bandcamp_prefix text not null primary key);
 

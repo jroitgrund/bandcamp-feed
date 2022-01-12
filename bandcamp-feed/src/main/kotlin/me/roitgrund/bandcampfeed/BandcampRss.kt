@@ -11,8 +11,7 @@ import kotlinx.html.stream.appendHTML
 
 fun entry(bandcampRelease: BandcampRelease): SyndEntry {
   val entry = SyndEntryImpl()
-  entry.title =
-      "(${bandcampRelease.prefix.prefix}) ${bandcampRelease.artist} - ${bandcampRelease.title}"
+  entry.title = "(${bandcampRelease.prefix}) ${bandcampRelease.artist} - ${bandcampRelease.title}"
   entry.link = bandcampRelease.url.toString()
   entry.publishedDate = Date.from(bandcampRelease.date.atStartOfDay().toInstant(ZoneOffset.UTC))
 

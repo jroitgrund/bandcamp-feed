@@ -3,15 +3,13 @@ package me.roitgrund.bandcampfeed
 import io.ktor.http.*
 import java.time.LocalDate
 
-data class BandcampPrefix(val prefix: String)
-
 data class BandcampRelease(
     val id: String,
     val url: Url,
     val title: String,
     val artist: String,
     val date: LocalDate,
-    val prefix: BandcampPrefix
+    val prefix: String
 )
 
 data class BandcampReleaseIntermediate(
@@ -19,5 +17,5 @@ data class BandcampReleaseIntermediate(
     val url: Url,
     val title: String,
     val artist: String,
-    val prefix: BandcampPrefix
+    val prefix: String
 )

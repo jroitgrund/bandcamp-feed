@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flowOf
 
+@FlowPreview
 fun updatePrefixesInBackground(storage: SqlStorage, bandcampClient: BandcampClient) {
   CoroutineScope(
           Dispatchers.Default +
@@ -15,15 +16,15 @@ fun updatePrefixesInBackground(storage: SqlStorage, bandcampClient: BandcampClie
                 BandcampFeedServer.log.error("Unrecoverable error", t)
               })
       .launch {
-        var prefix: BandcampPrefix? = null
+        var prefix: String? = null
         while (true) {
           try {
             prefix = storage.getNextPrefix(prefix)
             if (prefix != null) {
-              BandcampFeedServer.log.info("Updating prefix {}", prefix.prefix)
+              BandcampFeedServer.log.info("Updating prefix {}", prefix)
               bandcampClient
                   .getReleases(prefix)
-                  .takeWhile { !storage.isReleasePresent(ReleaseId(it.id)) }
+                  .takeWhile { !storage.isReleasePresent(it.id) }
                   .asFlow()
                   .flatMapConcat {
                     try {
@@ -37,10 +38,9 @@ fun updatePrefixesInBackground(storage: SqlStorage, bandcampClient: BandcampClie
             } else {
               BandcampFeedServer.log.info("No prefix to update")
             }
-          } catch (e: RuntimeException) {
+          } catch (e: Throwable) {
             BandcampFeedServer.log.error("Error", e)
           }
-          delay(1000)
         }
       }
 }
