@@ -222,9 +222,7 @@ class SqlStorage(url: String) {
                   .from(BandcampPrefixes.BANDCAMP_PREFIXES))
           .limit(2)
           .fetch(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)
-          .stream()
-          .findFirst()
-          .get()
+          .firstOrNull()
     }
   }
 
