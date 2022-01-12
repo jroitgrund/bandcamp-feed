@@ -99,7 +99,16 @@ docker {
     }
 }
 
+task copyFe(type: Copy) {
+    from "../bandcamp-feed-fe/dist"
+    into "build/docker/fe-dist"
+}
+
+copyFe.dependsOn(":bandcamp-feed-fe:yarn_build")
+tasks.dockerBuildImage.dependsOn(copyFe)
+
 dockerCreateDockerfile {
     instruction 'RUN touch /app/db.sqlite'
+    instruction 'COPY fe-dist static/'
 }
 
