@@ -40,3 +40,4 @@ create table feeds_prefixes (
     ) references bandcamp_prefixes(bandcamp_prefix) on delete cascade,
     foreign key (feed_id) references feeds(feed_id) on delete cascade
 );
+create index feed_prefixes_bandcamp_prefix on feeds_prefixes(bandcamp_prefix);

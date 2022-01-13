@@ -1,6 +1,7 @@
-import { concat, omit, sortBy, without } from "lodash";
+import classNames from "classnames";
+import { concat, filter, omit, sortBy, without } from "lodash";
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Feed, NewFeed } from "./Feed";
+import { BandcampPrefix, Feed, NewFeed } from "./Feed";
 
 type AppState =
   | { state: "LOADING" }
@@ -70,18 +71,47 @@ function App() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl bg-white h-screen p-1">{contents}</div>
+    <div className="min-h-screen v-screen bg-pink-200">
+      <div className="mx-auto max-w-4xl min-h-screen p-2">
+        <div className="border-b-4 border-b-pink-500 flex justify-between mb-10 font-mono">
+          <div className="text-xl cursor-default hover:text-pink-500">
+            bandcamp-feed
+          </div>
+          <div className="text-lg">
+            <a
+              className="cursor-pointer hover:underline decoration-wavy decoration-pink-500"
+              href="https://github.com/jroitgrund"
+            >
+              github
+            </a>
+            &nbsp;|&nbsp;
+            <a
+              className="cursor-pointer hover:underline decoration-wavy decoration-pink-500"
+              onClick={() => null}
+            >
+              help
+            </a>
+          </div>
+        </div>
+        <div>{contents}</div>
+      </div>
+    </div>
   );
 }
 
 function Loading() {
-  return <div>"..."</div>;
+  return <div></div>;
 }
 
 function LogIn() {
   return (
-    <div>
-      <a href="/login">log in </a>
+    <div className="flex flex-col items-center">
+      <a
+        className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500 text-3xl"
+        href="/login"
+      >
+        Log in{" "}
+      </a>
     </div>
   );
 }
@@ -93,17 +123,37 @@ function Feeds(props: {
 }) {
   return (
     <div>
-      <div>
-        <button onClick={props.createFeed}>Create feed</button>
-      </div>
       {props.feeds.length === 0 ? (
-        "No feeds yet"
+        <div className="flex flex-col items-center gap-4">
+          <div className="text-3xl">You don't have any feeds yet</div>
+          <div>
+            <button
+              onClick={props.createFeed}
+              className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500"
+            >
+              Create a feed
+            </button>
+          </div>
+        </div>
       ) : (
-        <ul>
-          {props.feeds.map((feed) => (
-            <FeedItem key={feed.id} feed={feed} editFeed={props.editFeed} />
-          ))}
-        </ul>
+        <div className="flex flex-col gap-4">
+          <div>
+            <button
+              className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500"
+              onClick={props.createFeed}
+            >
+              Create feed
+            </button>
+          </div>
+          <div className="bg-pink-300 p-2">
+            <div className="font-semibold mb-2">Your feeds</div>
+            <ul>
+              {props.feeds.map((feed) => (
+                <FeedItem key={feed.id} feed={feed} editFeed={props.editFeed} />
+              ))}
+            </ul>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -119,12 +169,26 @@ function FeedItem(props: { feed: Feed; editFeed: (feed: Feed) => void }) {
     [props]
   );
   return (
-    <li className="flex gap-2">
-      <div>
-        {props.feed.name} ({props.feed.prefixes.length})
+    <li className="flex gap-8 justify-between">
+      <div>{props.feed.name}</div>
+      <div className="flex gap-4">
+        <div>
+          <a
+            className="cursor-pointer hover:underline decoration-wavy decoration-pink-500"
+            onClick={editFeed}
+          >
+            Edit
+          </a>
+        </div>
+        <div>
+          <a
+            className="cursor-pointer hover:underline decoration-wavy decoration-pink-500"
+            onClick={copyUrl}
+          >
+            Copy URL
+          </a>
+        </div>
       </div>
-      <button onClick={editFeed}>Edit</button>
-      <button onClick={copyUrl}>Copy URL</button>
     </li>
   );
 }
@@ -135,11 +199,19 @@ function EditFeed(props: {
 }) {
   const [feed, setFeed] = useState(props.feed);
   const [username, setUsername] = useState("");
-  const [availablePrefixes, setAvailablePrefixes] = useState<Array<string>>([]);
+  const [availablePrefixes, setAvailablePrefixes] = useState<
+    Array<BandcampPrefix>
+  >([]);
 
-  const allPrefixes = useMemo(() => new Set(feed.prefixes), [feed.prefixes]);
+  const allPrefixes = useMemo(
+    () => new Set(feed.prefixes.map((prefix) => prefix.bandcampPrefix)),
+    [feed.prefixes]
+  );
   const newPrefixes = useMemo(
-    () => availablePrefixes.filter((prefix) => !allPrefixes.has(prefix)),
+    () =>
+      availablePrefixes.filter(
+        (prefix) => !allPrefixes.has(prefix.bandcampPrefix)
+      ),
     [allPrefixes, availablePrefixes]
   );
 
@@ -156,13 +228,16 @@ function EditFeed(props: {
 
   const loadFromUser = useCallback(async () => {
     setAvailablePrefixes(
-      await (
-        await fetch(`/user/${username}`, {
-          headers: new Headers({
-            Accept: "application/json",
-          }),
-        })
-      ).json()
+      sortBy(
+        await (
+          await fetch(`/user/${username}`, {
+            headers: new Headers({
+              Accept: "application/json",
+            }),
+          })
+        ).json(),
+        (prefix) => prefix.name
+      )
     );
   }, [username]);
 
@@ -173,7 +248,10 @@ function EditFeed(props: {
           "Content-Type": "application/json",
         }),
         method: "PUT",
-        body: JSON.stringify(omit(feed, "id")),
+        body: JSON.stringify({
+          name: feed.name,
+          prefixes: feed.prefixes.map((p) => p.bandcampPrefix),
+        }),
       });
     } else {
       await fetch("/new-feed", {
@@ -181,7 +259,10 @@ function EditFeed(props: {
           "Content-Type": "application/json",
         }),
         method: "POST",
-        body: JSON.stringify(omit(feed, "id")),
+        body: JSON.stringify({
+          name: feed.name,
+          prefixes: feed.prefixes.map((p) => p.bandcampPrefix),
+        }),
       });
     }
 
@@ -191,11 +272,11 @@ function EditFeed(props: {
   const removePrefix = useCallback((prefix: string) => {
     setFeed((f) => ({
       ...f,
-      prefixes: without(f.prefixes, prefix),
+      prefixes: filter(f.prefixes, (p) => p.bandcampPrefix !== prefix),
     }));
   }, []);
 
-  const addPrefix = useCallback((prefix: string) => {
+  const addPrefix = useCallback((prefix: BandcampPrefix) => {
     setFeed((f) => ({
       ...f,
       prefixes: sortBy(concat(f.prefixes, prefix)),
@@ -203,75 +284,115 @@ function EditFeed(props: {
   }, []);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex gap-4 flex-col">
       <div className="flex gap-2">
         <input
           type="text"
           value={feed.name}
           onChange={updateFeedName}
-          placeholder="..."
-          className="ring-2 rounded-md placeholder-gray-400 p-1"
+          placeholder="Feed name..."
+          className="placeholder-gray-500 bg-pink-200 p-1 underline decoration-pink-300 decoration-4 focus:outline-none focus:decoration-pink-400"
+          minLength={1}
         />
-        <button value="Save" className="rounded-md p-1 ring-2" onClick={save}>
+        <button
+          value="Save"
+          className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500 disabled:border-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+          onClick={save}
+          disabled={feed.name.length === 0 || feed.prefixes.length === 0}
+        >
           Save
         </button>
       </div>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={username}
-          onChange={updateUsername}
-          placeholder="..."
-          className="ring-2 rounded-md placeholder-gray-400 p-1"
-        />
-        <button className="rounded-md p-1 ring-2" onClick={loadFromUser}>
-          Load from user
-        </button>
-      </div>
-      <div className="flex gap-2">
-        <ul className="flex-1">
-          {feed.prefixes.map((prefix) => (
-            <Prefix key={prefix} prefix={prefix} removePrefix={removePrefix} />
-          ))}
-        </ul>
-        <ul className="flex-1">
-          {newPrefixes.map((prefix) => (
-            <AvailablePrefix
-              key={prefix}
-              prefix={prefix}
-              addPrefix={addPrefix}
+      {feed.prefixes.length === 0 && availablePrefixes.length === 0 ? (
+        <div className="flex justify-center">
+          <div className="flex gap-1">
+            <input
+              type="text"
+              value={username}
+              onChange={updateUsername}
+              placeholder="Bandcamp username..."
+              className="placeholder-gray-500 bg-pink-200 p-1 underline decoration-pink-300 decoration-4 focus:outline-none focus:decoration-pink-400"
             />
-          ))}
-        </ul>
-      </div>
+            <button
+              className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500 disabled:border-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              onClick={loadFromUser}
+              disabled={username.length === 0}
+            >
+              Load from user
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2 items-start">
+          <div className="flex-1">
+            <ul>
+              {feed.prefixes.map((prefix) => (
+                <Prefix
+                  key={prefix.bandcampPrefix}
+                  prefix={prefix}
+                  removePrefix={removePrefix}
+                />
+              ))}
+            </ul>
+          </div>
+          {availablePrefixes.length === 0 ? (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={username}
+                onChange={updateUsername}
+                placeholder="Bandcamp username..."
+                className="placeholder-gray-500 bg-pink-200 p-1 underline decoration-pink-300 decoration-4 focus:outline-none focus:decoration-pink-400"
+              />
+              <button
+                className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500 disabled:border-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                onClick={loadFromUser}
+                disabled={username.length === 0}
+              >
+                Load from user
+              </button>
+            </div>
+          ) : (
+            <ul>
+              {newPrefixes.map((prefix) => (
+                <AvailablePrefix
+                  key={prefix.bandcampPrefix}
+                  prefix={prefix}
+                  addPrefix={addPrefix}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 function Prefix(props: {
-  prefix: string;
+  prefix: BandcampPrefix;
   removePrefix: (prefix: string) => void;
 }) {
   const removePrefix = useCallback(() => {
-    props.removePrefix(props.prefix);
+    props.removePrefix(props.prefix.bandcampPrefix);
   }, [props]);
   return (
     <li>
-      {props.prefix} <button onClick={removePrefix}>remove</button>
+      {props.prefix.name} <button onClick={removePrefix}>remove</button>
     </li>
   );
 }
 
 function AvailablePrefix(props: {
-  prefix: string;
-  addPrefix: (prefix: string) => void;
+  prefix: BandcampPrefix;
+  addPrefix: (prefix: BandcampPrefix) => void;
 }) {
   const addPrefix = useCallback(() => {
     props.addPrefix(props.prefix);
   }, [props]);
   return (
     <li className="flex gap-2">
-      {props.prefix}
+      {props.prefix.name}
       <button onClick={addPrefix}>add</button>
     </li>
   );
