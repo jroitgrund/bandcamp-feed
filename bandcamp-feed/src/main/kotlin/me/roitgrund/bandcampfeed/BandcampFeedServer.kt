@@ -65,7 +65,8 @@ fun ApplicationCall.getUrl(path: String): String {
   }
 }
 
-@Serializable data class UserFeed(val id: String, val name: String, val prefixes: Set<String>)
+@Serializable
+data class UserFeed(val id: String, val name: String, val prefixes: Set<BandcampPrefix>)
 
 @Serializable data class UserSession(val email: String)
 
@@ -195,6 +196,7 @@ fun Application.module() {
         call.response.status(HttpStatusCode.Unauthorized)
       } else {
         val prefixes = bandcampClient.getArtistsAndLabels(user.user)
+        storage.savePrefixes(prefixes)
         call.respond(prefixes)
       }
     }

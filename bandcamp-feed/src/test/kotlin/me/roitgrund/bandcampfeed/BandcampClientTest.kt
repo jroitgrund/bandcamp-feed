@@ -53,7 +53,9 @@ internal class BandcampClientTest {
   fun getArtistsAndLabels() {
     runBlocking {
       assertTrue {
-        BandcampClient(JSON, HTTP_CLIENT).getArtistsAndLabels("jroitgrund").contains("koseifukuda")
+        BandcampClient(JSON, HTTP_CLIENT)
+            .getArtistsAndLabels("jroitgrund")
+            .contains(BandcampPrefix("koseifukuda", "Kosei Fukuda"))
       }
     }
   }

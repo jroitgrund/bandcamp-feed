@@ -1,18 +1,24 @@
 create table feeds (
-    feed_id text not null primary key,
+    feed_id text not null,
     feed_name text not null,
-    user_email text not null
+    user_email text not null,
+    primary key (feed_id, feed_name, user_email)
 );
-create index feeds_user_email ON feeds(user_email);
+create index feeds_user_email on feeds(user_email, feed_name, feed_id);
 
-create table bandcamp_prefixes (bandcamp_prefix text not null primary key);
+create table bandcamp_prefixes (
+    bandcamp_prefix text not null,
+    name text not null,
+    primary key (bandcamp_prefix, name)
+);
 
 create table releases (
-    release_id text not null primary key,
+    release_id text not null,
     url text not null,
     title text not null,
     artist text not null,
-    release_date text not null
+    release_date text not null,
+    primary key (release_id, url, title, artist, release_date)
 );
 
 create table releases_prefixes (

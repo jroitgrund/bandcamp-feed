@@ -20,7 +20,12 @@ class SqlStorage(url: String) {
   private val connection: Supplier<Connection>
 
   init {
-    connection = Suppliers.memoize { DriverManager.getConnection(url) }
+    connection =
+        Suppliers.memoize {
+          val connection = DriverManager.getConnection(url)
+          DSL.using(DriverManager.getConnection(url)).query("PRAGMA foreign_keys = ON;").execute()
+          connection
+        }
   }
 
   suspend fun getUserFeeds(email: String): List<UserFeed> {
@@ -29,10 +34,15 @@ class SqlStorage(url: String) {
           .select(
               Feeds.FEEDS.FEED_ID,
               Feeds.FEEDS.FEED_NAME,
-              FeedsPrefixes.FEEDS_PREFIXES.BANDCAMP_PREFIX)
+              FeedsPrefixes.FEEDS_PREFIXES.BANDCAMP_PREFIX,
+              BandcampPrefixes.BANDCAMP_PREFIXES.NAME)
           .from(Feeds.FEEDS)
           .join(FeedsPrefixes.FEEDS_PREFIXES)
           .on(Feeds.FEEDS.FEED_ID.eq(FeedsPrefixes.FEEDS_PREFIXES.FEED_ID))
+          .join(BandcampPrefixes.BANDCAMP_PREFIXES)
+          .on(
+              FeedsPrefixes.FEEDS_PREFIXES.BANDCAMP_PREFIX.eq(
+                  BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX))
           .where(Feeds.FEEDS.USER_EMAIL.eq(email))
           .fetchGroups(Feeds.FEEDS.FEED_ID)
           .values
@@ -41,10 +51,31 @@ class SqlStorage(url: String) {
                 it.first().into(Feeds.FEEDS).feedId,
                 it.first().into(Feeds.FEEDS).feedName,
                 it.asSequence()
-                    .map { row -> row.into(FeedsPrefixes.FEEDS_PREFIXES).bandcampPrefix }
+                    .map { row ->
+                      BandcampPrefix(
+                          row.into(FeedsPrefixes.FEEDS_PREFIXES).bandcampPrefix,
+                          row.into(BandcampPrefixes.BANDCAMP_PREFIXES).name)
+                    }
                     .toSet())
           }
           .sortedBy { it.name }
+    }
+  }
+
+  suspend fun savePrefixes(bandcampPrefixes: Set<BandcampPrefix>) {
+    runWithConnection { c ->
+      c.loadInto(BandcampPrefixes.BANDCAMP_PREFIXES)
+          .batchAll()
+          .onDuplicateKeyIgnore()
+          .loadRecords(
+              bandcampPrefixes.map {
+                val newRecord = c.newRecord(BandcampPrefixes.BANDCAMP_PREFIXES)
+                newRecord.bandcampPrefix = it.bandcampPrefix
+                newRecord.name = it.name
+                newRecord
+              })
+          .fields(BandcampPrefixes.BANDCAMP_PREFIXES.fields().toList())
+          .execute()
     }
   }
 
@@ -52,20 +83,8 @@ class SqlStorage(url: String) {
     return runWithConnection { c ->
       c.transactionResult { tx ->
         val dsl = DSL.using(tx)
-        dsl.loadInto(BandcampPrefixes.BANDCAMP_PREFIXES)
-            .batchAll()
-            .onDuplicateKeyIgnore()
-            .loadRecords(
-                bandcampPrefixes.map {
-                  val newRecord = dsl.newRecord(BandcampPrefixes.BANDCAMP_PREFIXES)
-                  newRecord.bandcampPrefix = it
-                  newRecord
-                })
-            .fields(BandcampPrefixes.BANDCAMP_PREFIXES.fields().toList())
-            .execute()
 
         val feedId = UUID.randomUUID().toString()
-
         val feed = dsl.newRecord(Feeds.FEEDS)
         feed.feedName = name
         feed.userEmail = email
@@ -104,17 +123,6 @@ class SqlStorage(url: String) {
         if (existingEmail == null || email != existingEmail) {
           false
         } else {
-          dsl.loadInto(BandcampPrefixes.BANDCAMP_PREFIXES)
-              .batchAll()
-              .onDuplicateKeyIgnore()
-              .loadRecords(
-                  bandcampPrefixes.map {
-                    val newRecord = dsl.newRecord(BandcampPrefixes.BANDCAMP_PREFIXES)
-                    newRecord.bandcampPrefix = it
-                    newRecord
-                  })
-              .fields(BandcampPrefixes.BANDCAMP_PREFIXES.fields().toList())
-              .execute()
           dsl.deleteFrom(FeedsPrefixes.FEEDS_PREFIXES)
               .where(FeedsPrefixes.FEEDS_PREFIXES.FEED_ID.eq(feedId))
               .execute()

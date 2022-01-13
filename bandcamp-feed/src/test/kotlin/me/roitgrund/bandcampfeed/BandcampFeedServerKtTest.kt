@@ -36,6 +36,10 @@ internal class BandcampFeedServerKtTest {
       Flyway.configure().dataSource(dbUrl, "", "").load().migrate()
       updatePrefixesInBackground(storage, bandcampClient)
 
+      storage.savePrefixes(
+          setOf(
+              BandcampPrefix("romancemoderne", "Romance Moderne"),
+              BandcampPrefix("augurirecords", "Auguri Records")))
       val feedId = storage.saveFeed("title", "me@me.com", setOf("romancemoderne", "augurirecords"))
 
       (0..60).forEach { i ->

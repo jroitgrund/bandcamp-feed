@@ -2,6 +2,7 @@ package me.roitgrund.bandcampfeed
 
 import io.ktor.http.*
 import java.time.LocalDate
+import kotlinx.serialization.Serializable
 
 data class BandcampRelease(
     val id: String,
@@ -19,3 +20,5 @@ data class BandcampReleaseIntermediate(
     val artist: String,
     val prefix: String
 )
+
+@Serializable data class BandcampPrefix(val bandcampPrefix: String, val name: String)

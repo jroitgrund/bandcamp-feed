@@ -20,10 +20,21 @@ internal class SqlStorageTest {
 
       assertEquals(listOf(), storage.getUserFeeds("me@me.com"))
 
+      storage.savePrefixes(
+          setOf(
+              BandcampPrefix("romancemoderne", "Romance Moderne"),
+              BandcampPrefix("augurirecords", "Auguri Records"),
+              BandcampPrefix("haws", "Haws")))
       val feedId = storage.saveFeed("title", "me@me.com", setOf("romancemoderne", "augurirecords"))
 
       assertEquals(
-          listOf(UserFeed(feedId, "title", setOf("romancemoderne", "augurirecords"))),
+          listOf(
+              UserFeed(
+                  feedId,
+                  "title",
+                  setOf(
+                      BandcampPrefix("romancemoderne", "Romance Moderne"),
+                      BandcampPrefix("augurirecords", "Auguri Records")))),
           storage.getUserFeeds("me@me.com"))
 
       assert(!storage.editFeed(feedId, "other-title", "not-me@me.com", setOf()))
@@ -31,7 +42,8 @@ internal class SqlStorageTest {
       assert(storage.editFeed(feedId, "other-title", "me@me.com", setOf("haws")))
 
       assertEquals(
-          listOf(UserFeed(feedId, "other-title", setOf("haws"))), storage.getUserFeeds("me@me.com"))
+          listOf(UserFeed(feedId, "other-title", setOf(BandcampPrefix("haws", "Haws")))),
+          storage.getUserFeeds("me@me.com"))
     }
   }
 }

@@ -17,6 +17,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import me.roitgrund.bandcampfeed.BandcampPrefix
 import me.roitgrund.bandcampfeed.BandcampRelease
 import me.roitgrund.bandcampfeed.BandcampReleaseIntermediate
 import org.apache.commons.text.StringEscapeUtils
@@ -62,9 +63,7 @@ private data class FollowingBandsResponse(
 )
 
 @Serializable
-private data class Follower(
-    @SerialName("url_hints") val urlHints: UrlHints,
-)
+private data class Follower(@SerialName("url_hints") val urlHints: UrlHints, val name: String)
 
 @Serializable
 private data class UrlHints(
@@ -104,7 +103,7 @@ class BandcampClient(private val json: Json, private val client: HttpClient) {
     return useClient { it.get<HttpStatement>(url).receive() }
   }
 
-  suspend fun getArtistsAndLabels(username: String): List<String> {
+  suspend fun getArtistsAndLabels(username: String): Set<BandcampPrefix> {
     return hiPri {
       val parsedPage =
           Jsoup.parse(getHtml(Url("https://bandcamp.com/${username}/following/artists_and_labels")))
@@ -122,9 +121,8 @@ class BandcampClient(private val json: Json, private val client: HttpClient) {
           }
           .followers
           .asSequence()
-          .map { it.urlHints.bandcampPrefix }
-          .sorted()
-          .toList()
+          .map { BandcampPrefix(it.urlHints.bandcampPrefix, it.name) }
+          .toSet()
     }
   }
 
