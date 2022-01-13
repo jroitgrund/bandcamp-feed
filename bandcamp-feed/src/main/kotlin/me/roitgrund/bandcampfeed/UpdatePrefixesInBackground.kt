@@ -2,10 +2,7 @@ package me.roitgrund.bandcampfeed
 
 import BandcampClient
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flatMapConcat
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.*
 
 @FlowPreview
 fun updatePrefixesInBackground(storage: SqlStorage, bandcampClient: BandcampClient) {
@@ -31,12 +28,12 @@ fun updatePrefixesInBackground(storage: SqlStorage, bandcampClient: BandcampClie
                       flowOf(bandcampClient.getRelease(it))
                     } catch (e: Exception) {
                       BandcampFeedServer.log.error("Error with release {}", it.url, e)
-                      kotlinx.coroutines.flow.emptyFlow()
+                      emptyFlow()
                     }
                   }
                   .collect { storage.addRelease(prefix, it) }
             } else {
-              BandcampFeedServer.log.info("No prefix to update")
+              BandcampFeedServer.log.debug("No prefix to update")
             }
           } catch (e: Throwable) {
             BandcampFeedServer.log.error("Error", e)

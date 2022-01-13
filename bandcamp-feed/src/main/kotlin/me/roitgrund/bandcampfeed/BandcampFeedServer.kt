@@ -111,6 +111,7 @@ fun Application.module() {
   val dbPath = environment.config.property("ktor.dbPath").getString()
   val dbUrl = "jdbc:sqlite:$dbPath"
   val storage = SqlStorage(dbUrl)
+  val development = environment.config.property("ktor.development").getString() == "true"
 
   Flyway.configure().dataSource(dbUrl, "", "").load().migrate()
   updatePrefixesInBackground(storage, bandcampClient)
@@ -132,10 +133,26 @@ fun Application.module() {
     }
 
     get<Locations.Home> {
-      call.respondFile(Paths.get("./bandcamp-feed-fe/dist/index.html").toFile())
+      call.respondFile(
+          Paths.get(
+                  if (development) {
+                    "./bandcamp-feed-fe/dist/index.html"
+                  } else {
+                    "/static/index.html"
+                  })
+              .toFile())
     }
 
-    static("static") { files(Paths.get("./bandcamp-feed-fe/dist/").toFile()) }
+    static("static") {
+      files(
+          Paths.get(
+                  if (development) {
+                    "./bandcamp-feed-fe/dist/"
+                  } else {
+                    "/static/"
+                  })
+              .toFile())
+    }
 
     get<Locations.Feeds> {
       val session = call.sessions.get<UserSession>()

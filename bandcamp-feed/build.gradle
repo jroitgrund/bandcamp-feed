@@ -105,10 +105,10 @@ task copyFe(type: Copy) {
 }
 
 copyFe.dependsOn(":bandcamp-feed-fe:yarn_build")
-tasks.dockerBuildImage.dependsOn(copyFe)
+tasks.dockerSyncBuildContext.finalizedBy(tasks.copyFe)
 
 dockerCreateDockerfile {
     instruction 'RUN touch /app/db.sqlite'
-    instruction 'COPY fe-dist static/'
+    instruction 'COPY fe-dist /static/'
 }
 
