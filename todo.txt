@@ -1,2 +1,3 @@
 Caching headers for fe assets
 more styling - loading indicators, disable buttons from being clicked twice scroll only right column when adding prefixes
+add gifs to help section
