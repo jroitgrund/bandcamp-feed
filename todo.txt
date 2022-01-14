@@ -1,4 +1,2 @@
-Caching
-Single query for "get next prefix" background worker
-more styling
-refactor fe esp styling
+Caching headers for fe assets
+more styling - loading indicators, disable buttons from being clicked twice scroll only right column when adding prefixes

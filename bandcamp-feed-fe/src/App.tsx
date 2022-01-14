@@ -1,7 +1,16 @@
 import classNames from "classnames";
-import { concat, filter, omit, sortBy, without } from "lodash";
+import { concat, filter, sortBy } from "lodash";
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { BandcampPrefix, Feed, NewFeed } from "./Feed";
+
+const buttonClasses =
+  "cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500 disabled:border-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed";
+const linkClasses =
+  "cursor-pointer hover:underline decoration-wavy decoration-pink-500";
+const inputClasses =
+  "placeholder-gray-500 bg-pink-200 p-1 border-pink-300 border-4 focus:outline-none focus:border-pink-400";
+const inlineLinkClasses =
+  "cursor-pointer hover:before:content-['['] hover:after:content-[']'] text-pink-900";
 
 type AppState =
   | { state: "LOADING" }
@@ -78,17 +87,11 @@ function App() {
             bandcamp-feed
           </div>
           <div className="text-lg">
-            <a
-              className="cursor-pointer hover:underline decoration-wavy decoration-pink-500"
-              href="https://github.com/jroitgrund"
-            >
+            <a className={linkClasses} href="https://github.com/jroitgrund">
               github
             </a>
             &nbsp;|&nbsp;
-            <a
-              className="cursor-pointer hover:underline decoration-wavy decoration-pink-500"
-              onClick={() => null}
-            >
+            <a className={linkClasses} onClick={() => null}>
               help
             </a>
           </div>
@@ -106,11 +109,8 @@ function Loading() {
 function LogIn() {
   return (
     <div className="flex flex-col items-center">
-      <a
-        className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500 text-3xl"
-        href="/login"
-      >
-        Log in{" "}
+      <a className={classNames(buttonClasses, "text-3xl")} href="/login">
+        Log in
       </a>
     </div>
   );
@@ -129,7 +129,7 @@ function Feeds(props: {
           <div>
             <button
               onClick={props.createFeed}
-              className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500"
+              className={classNames(buttonClasses)}
             >
               Create a feed
             </button>
@@ -139,7 +139,7 @@ function Feeds(props: {
         <div className="flex flex-col gap-4">
           <div>
             <button
-              className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500"
+              className={classNames(buttonClasses)}
               onClick={props.createFeed}
             >
               Create feed
@@ -169,22 +169,16 @@ function FeedItem(props: { feed: Feed; editFeed: (feed: Feed) => void }) {
     [props]
   );
   return (
-    <li className="flex gap-8 justify-between">
+    <li className="flex justify-between">
       <div>{props.feed.name}</div>
       <div className="flex gap-4">
         <div>
-          <a
-            className="cursor-pointer hover:underline decoration-wavy decoration-pink-500"
-            onClick={editFeed}
-          >
+          <a className={linkClasses} onClick={editFeed}>
             Edit
           </a>
         </div>
         <div>
-          <a
-            className="cursor-pointer hover:underline decoration-wavy decoration-pink-500"
-            onClick={copyUrl}
-          >
+          <a className={linkClasses} onClick={copyUrl}>
             Copy URL
           </a>
         </div>
@@ -266,7 +260,7 @@ function EditFeed(props: {
       });
     }
 
-    props.loadFeeds();
+    await props.loadFeeds();
   }, [props, feed]);
 
   const removePrefix = useCallback((prefix: string) => {
@@ -284,37 +278,44 @@ function EditFeed(props: {
   }, []);
 
   return (
-    <div className="flex gap-4 flex-col">
+    <div className="flex gap-8 flex-col">
       <div className="flex gap-2">
         <input
           type="text"
           value={feed.name}
           onChange={updateFeedName}
           placeholder="Feed name..."
-          className="placeholder-gray-500 bg-pink-200 p-1 underline decoration-pink-300 decoration-4 focus:outline-none focus:decoration-pink-400"
+          className={inputClasses}
           minLength={1}
         />
         <button
           value="Save"
-          className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500 disabled:border-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+          className={buttonClasses}
           onClick={save}
           disabled={feed.name.length === 0 || feed.prefixes.length === 0}
         >
           Save
         </button>
+        <button
+          value="Cancel"
+          className={buttonClasses}
+          onClick={props.loadFeeds}
+        >
+          Cancel
+        </button>
       </div>
       {feed.prefixes.length === 0 && availablePrefixes.length === 0 ? (
-        <div className="flex justify-center">
+        <div className="flex justify-center mt-5">
           <div className="flex gap-1">
             <input
               type="text"
               value={username}
               onChange={updateUsername}
               placeholder="Bandcamp username..."
-              className="placeholder-gray-500 bg-pink-200 p-1 underline decoration-pink-300 decoration-4 focus:outline-none focus:decoration-pink-400"
+              className={inputClasses}
             />
             <button
-              className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500 disabled:border-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className={buttonClasses}
               onClick={loadFromUser}
               disabled={username.length === 0}
             >
@@ -342,10 +343,10 @@ function EditFeed(props: {
                 value={username}
                 onChange={updateUsername}
                 placeholder="Bandcamp username..."
-                className="placeholder-gray-500 bg-pink-200 p-1 underline decoration-pink-300 decoration-4 focus:outline-none focus:decoration-pink-400"
+                className={inputClasses}
               />
               <button
-                className="cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500 disabled:border-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className={buttonClasses}
                 onClick={loadFromUser}
                 disabled={username.length === 0}
               >
@@ -378,7 +379,10 @@ function Prefix(props: {
   }, [props]);
   return (
     <li>
-      {props.prefix.name} <button onClick={removePrefix}>remove</button>
+      {props.prefix.name}{" "}
+      <a className={classNames(inlineLinkClasses)} onClick={removePrefix}>
+        remove
+      </a>
     </li>
   );
 }
@@ -393,7 +397,9 @@ function AvailablePrefix(props: {
   return (
     <li className="flex gap-2">
       {props.prefix.name}
-      <button onClick={addPrefix}>add</button>
+      <a className={classNames(inlineLinkClasses)} onClick={addPrefix}>
+        add
+      </a>
     </li>
   );
 }

@@ -2,6 +2,11 @@ package me.roitgrund.bandcampfeed
 
 import com.google.common.base.Suppliers
 import io.ktor.http.*
+import java.sql.Connection
+import java.sql.DriverManager
+import java.time.LocalDate
+import java.util.*
+import java.util.function.Supplier
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import me.roitgrund.bandcampfeed.sql.tables.*
@@ -9,11 +14,6 @@ import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.asterisk
 import org.jooq.impl.DSL.inline
-import java.sql.Connection
-import java.sql.DriverManager
-import java.time.LocalDate
-import java.util.*
-import java.util.function.Supplier
 
 class SqlStorage(url: String) {
   private val mutex = Mutex()
@@ -222,26 +222,25 @@ class SqlStorage(url: String) {
 
   suspend fun getNextPrefix(prefix: String?): String? {
     return runWithConnection { c ->
-      var prefix = prefix
-      val next = { p: String? ->
-        c.select(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)
-            .from(BandcampPrefixes.BANDCAMP_PREFIXES)
-            .where(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX.greaterThan(p ?: ""))
-            .unionAll(
-                c.select(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)
-                    .from(BandcampPrefixes.BANDCAMP_PREFIXES))
-            .limit(2)
-            .fetch(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)
-            .firstOrNull()
-      }
-      do {
-        prefix = next(prefix)
-      } while (prefix != null &&
-          c.select(inline("1"))
-              .from(FeedsPrefixes.FEEDS_PREFIXES)
-              .where(FeedsPrefixes.FEEDS_PREFIXES.BANDCAMP_PREFIX.eq(prefix))
-              .fetchOne() == null)
-      prefix
+      c.select(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)
+          .from(BandcampPrefixes.BANDCAMP_PREFIXES)
+          .join(FeedsPrefixes.FEEDS_PREFIXES)
+          .on(
+              BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX.eq(
+                  FeedsPrefixes.FEEDS_PREFIXES.BANDCAMP_PREFIX))
+          .where(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX.greaterThan(prefix ?: ""))
+          .groupBy(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)
+          .unionAll(
+              c.select(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)
+                  .from(BandcampPrefixes.BANDCAMP_PREFIXES)
+                  .join(FeedsPrefixes.FEEDS_PREFIXES)
+                  .on(
+                      BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX.eq(
+                          FeedsPrefixes.FEEDS_PREFIXES.BANDCAMP_PREFIX))
+                  .groupBy(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX))
+          .limit(2)
+          .fetch(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)
+          .firstOrNull()
     }
   }
 
