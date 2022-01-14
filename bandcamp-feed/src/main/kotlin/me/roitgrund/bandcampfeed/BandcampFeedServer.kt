@@ -59,7 +59,9 @@ fun ApplicationCall.getUrl(path: String): String {
   val call = this
   return URLBuilder().run {
     this.protocol = URLProtocol.createOrDefault(call.request.origin.scheme)
-    this.host = call.request.origin.host
+    this.host =
+        call.request.header(HttpHeaders.XForwardedHost)
+            ?: checkNotNull(call.request.header(HttpHeaders.Host))
     this.path(path.substring(1))
     this.buildString()
   }
@@ -77,8 +79,8 @@ fun Application.module() {
   val httpClient =
       HttpClient(CIO) { install(JsonFeature) { serializer = KotlinxSerializer(jsonSerializer) } }
 
-  install(Locations)
   install(XForwardedHeaderSupport)
+  install(Locations)
   install(Sessions) {
     cookie<UserSession>("user_session") {
       cookie.extensions["SameSite"] = "None"
