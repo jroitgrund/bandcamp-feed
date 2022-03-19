@@ -17,20 +17,20 @@ import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.locations.*
 import io.ktor.locations.post
-import io.ktor.locations.put as locationsPut
 import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.serialization.*
 import io.ktor.server.netty.*
 import io.ktor.sessions.*
-import java.io.OutputStreamWriter
-import java.nio.file.Paths
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.flywaydb.core.Flyway
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.OutputStreamWriter
+import java.nio.file.Paths
+import io.ktor.locations.put as locationsPut
 
 object BandcampFeedServer {
   val log: Logger = LoggerFactory.getLogger(BandcampFeedServer::class.java)
@@ -40,17 +40,17 @@ fun main(args: Array<String>): Unit = EngineMain.main(args)
 
 class Locations {
 
-  @Location("/new-feed") class NewFeed
+  @Location("/api/new-feed") class NewFeed
 
-  @Location("/feed/{feedId}") data class Feed(val feedId: String)
+  @Location("/api/feed/{feedId}") data class Feed(val feedId: String)
 
-  @Location("/feeds") class Feeds
+  @Location("/api/feeds") class Feeds
 
-  @Location("/user/{user}") data class User(val user: String)
+  @Location("/api/user/{user}") data class User(val user: String)
 
-  @Location("/oauth-callback") class OAuthCallback
+  @Location("/api/oauth-callback") class OAuthCallback
 
-  @Location("/login") class Login
+  @Location("/api/login") class Login
 
   @Location("/") class Home
 }
@@ -135,26 +135,11 @@ fun Application.module() {
       }
     }
 
-    get<Locations.Home> {
-      call.respondFile(
-          Paths.get(
-                  if (development) {
-                    "./bandcamp-feed-fe/dist/index.html"
-                  } else {
-                    "/static/index.html"
-                  })
-              .toFile())
-    }
+    get<Locations.Home> { call.respondFile(Paths.get("/static/index.html").toFile()) }
 
-    static("static") {
-      files(
-          Paths.get(
-                  if (development) {
-                    "./bandcamp-feed-fe/dist/"
-                  } else {
-                    "/static/"
-                  })
-              .toFile())
+    static("/static") {
+      files(Paths.get("/static").toFile())
+      file("{...}", "/static/index.html")
     }
 
     get<Locations.Feeds> {
@@ -221,5 +206,7 @@ fun Application.module() {
         output.output(feed, writer)
       }
     }
+
+    get("{...}") { call.respondFile(Paths.get("/static/index.html").toFile()) }
   }
 }

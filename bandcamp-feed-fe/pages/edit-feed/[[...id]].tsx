@@ -1,193 +1,44 @@
 import classNames from "classnames";
-import { concat, filter, sortBy } from "lodash";
-import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { BandcampPrefix, Feed, NewFeed } from "./Feed";
+import { sortBy, filter, concat, find } from "lodash";
+import { useRouter } from "next/router";
+import { useState, useMemo, useCallback, ChangeEvent } from "react";
+import { BandcampPrefix, Feed, NewFeed } from "../../lib/api";
+import { AppContext } from "../../lib/context";
+import Link from "next/link";
+import { inputClasses, buttonClasses, inlineLinkClasses } from "../../lib/css";
 
-const buttonClasses =
-  "cursor-pointer border-2 rounded border-pink-400 p-2 bg-pink-300 hover:border-pink-500 disabled:border-gray-500 disabled:bg-gray-100 disabled:cursor-not-allowed";
-const linkClasses =
-  "cursor-pointer hover:underline decoration-wavy decoration-pink-500";
-const inputClasses =
-  "placeholder-gray-500 bg-pink-200 p-1 border-pink-300 border-4 focus:outline-none focus:border-pink-400";
-const inlineLinkClasses =
-  "cursor-pointer hover:before:content-['['] hover:after:content-[']'] text-pink-900";
-
-type AppState =
-  | { state: "LOADING" }
-  | { state: "NOT_LOGGED_IN" }
-  | {
-      state: "VIEWING_FEEDS";
-      feeds: Array<Feed>;
-    }
-  | {
-      state: "EDITING_FEED";
-      feed: Feed | NewFeed;
-    };
-
-function App() {
-  const [state, setState] = useState<AppState>({ state: "LOADING" });
-
-  const loadFeeds = useCallback(async () => {
-    const result = await fetch("/feeds", {
-      headers: new Headers({ Accept: "application/json" }),
-    });
-
-    if (result.status === 401) {
-      setState({
-        state: "NOT_LOGGED_IN",
-      });
-    } else {
-      const feeds = await result.json();
-      setState({
-        state: "VIEWING_FEEDS",
-        feeds,
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    loadFeeds();
-  }, [loadFeeds]);
-
-  const editFeed = useCallback((feed: Feed) => {
-    setState({
-      state: "EDITING_FEED",
-      feed,
-    });
-  }, []);
-
-  const createFeed = useCallback(() => {
-    setState({
-      state: "EDITING_FEED",
-      feed: {
-        name: "",
-        prefixes: [],
-      },
-    });
-  }, []);
-
-  let contents: JSX.Element;
-  if (state.state === "LOADING") {
-    contents = <Loading />;
-  } else if (state.state === "NOT_LOGGED_IN") {
-    contents = <LogIn />;
-  } else if (state.state === "VIEWING_FEEDS") {
-    contents = <Feeds {...state} editFeed={editFeed} createFeed={createFeed} />;
-  } else if (state.state === "EDITING_FEED") {
-    contents = <EditFeed {...state} loadFeeds={loadFeeds} />;
-  } else {
-    throw Error();
+export default function EditFeed() {
+  const router = useRouter();
+  if (!router.isReady) {
+    return null;
   }
-
+  const id: string | undefined = router.query["id"]?.[0];
   return (
-    <div className="min-h-screen v-screen bg-pink-200">
-      <div className="mx-auto max-w-4xl min-h-screen p-2">
-        <div className="border-b-4 border-b-pink-500 flex justify-between mb-10 font-mono">
-          <div className="text-xl cursor-default hover:text-pink-500">
-            bandcamp-feed
-          </div>
-          <div className="text-lg">
-            <a className={linkClasses} href="https://github.com/jroitgrund">
-              github
-            </a>
-            &nbsp;|&nbsp;
-            <a className={linkClasses} onClick={() => null}>
-              help
-            </a>
-          </div>
-        </div>
-        <div>{contents}</div>
-      </div>
-    </div>
+    <AppContext.Consumer>
+      {(context) => {
+        if (id != null) {
+          const feed = find(context.feeds, (feed) => feed.id === id);
+          if (feed == null) {
+            return null;
+          }
+
+          return <EditFeedImpl feed={feed} loadFeeds={context.loadFeeds} />;
+        }
+        return (
+          <EditFeedImpl
+            feed={{
+              name: "",
+              prefixes: [],
+            }}
+            loadFeeds={context.loadFeeds}
+          />
+        );
+      }}
+    </AppContext.Consumer>
   );
 }
 
-function Loading() {
-  return <div></div>;
-}
-
-function LogIn() {
-  return (
-    <div className="flex flex-col items-center">
-      <a className={classNames(buttonClasses, "text-3xl")} href="/login">
-        Log in
-      </a>
-    </div>
-  );
-}
-
-function Feeds(props: {
-  feeds: Array<Feed>;
-  editFeed: (feed: Feed) => void;
-  createFeed: () => void;
-}) {
-  return (
-    <div>
-      {props.feeds.length === 0 ? (
-        <div className="flex flex-col items-center gap-4">
-          <div className="text-3xl">You don't have any feeds yet</div>
-          <div>
-            <button
-              onClick={props.createFeed}
-              className={classNames(buttonClasses)}
-            >
-              Create a feed
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div>
-            <button
-              className={classNames(buttonClasses)}
-              onClick={props.createFeed}
-            >
-              Create feed
-            </button>
-          </div>
-          <div className="bg-pink-300 p-2">
-            <div className="font-semibold mb-2">Your feeds</div>
-            <ul>
-              {props.feeds.map((feed) => (
-                <FeedItem key={feed.id} feed={feed} editFeed={props.editFeed} />
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FeedItem(props: { feed: Feed; editFeed: (feed: Feed) => void }) {
-  const editFeed = useCallback(() => props.editFeed(props.feed), [props]);
-  const copyUrl = useCallback(
-    () =>
-      navigator.clipboard.writeText(
-        `${window.location.protocol}//${window.location.host}/feed/${props.feed.id}`
-      ),
-    [props]
-  );
-  return (
-    <li className="flex justify-between">
-      <div>{props.feed.name}</div>
-      <div className="flex gap-4">
-        <div>
-          <a className={linkClasses} onClick={editFeed}>
-            Edit
-          </a>
-        </div>
-        <div>
-          <a className={linkClasses} onClick={copyUrl}>
-            Copy URL
-          </a>
-        </div>
-      </div>
-    </li>
-  );
-}
-
-function EditFeed(props: {
+function EditFeedImpl(props: {
   feed: Feed | NewFeed;
   loadFeeds: () => Promise<void>;
 }) {
@@ -224,7 +75,7 @@ function EditFeed(props: {
     setAvailablePrefixes(
       sortBy(
         await (
-          await fetch(`/user/${username}`, {
+          await fetch(`/api/user/${username}`, {
             headers: new Headers({
               Accept: "application/json",
             }),
@@ -237,7 +88,7 @@ function EditFeed(props: {
 
   const save = useCallback(async () => {
     if ("id" in feed) {
-      await fetch(`/feed/${feed.id}`, {
+      await fetch(`/api/feed/${feed.id}`, {
         headers: new Headers({
           "Content-Type": "application/json",
         }),
@@ -248,7 +99,7 @@ function EditFeed(props: {
         }),
       });
     } else {
-      await fetch("/new-feed", {
+      await fetch("/api/new-feed", {
         headers: new Headers({
           "Content-Type": "application/json",
         }),
@@ -296,13 +147,11 @@ function EditFeed(props: {
         >
           Save
         </button>
-        <button
-          value="Cancel"
-          className={buttonClasses}
-          onClick={props.loadFeeds}
-        >
-          Cancel
-        </button>
+        <Link href="/" passHref={true}>
+          <button value="Cancel" className={buttonClasses}>
+            Cancel
+          </button>
+        </Link>
       </div>
       {feed.prefixes.length === 0 && availablePrefixes.length === 0 ? (
         <div className="flex justify-center mt-5">
@@ -403,5 +252,3 @@ function AvailablePrefix(props: {
     </li>
   );
 }
-
-export default App;

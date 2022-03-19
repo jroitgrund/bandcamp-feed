@@ -1,9 +1,17 @@
 services:
-  nginx:
+  nginx-dev:
     image: nginx
     ports:
       - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx.dev.conf:/etc/nginx/nginx.conf
+      - ./localhost.pem:/localhost.pem
+      - ./localhost-key.pem:/localhost-key.pem
+  nginx-prod:
+    image: nginx
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf
       - ./localhost.pem:/localhost.pem
       - ./localhost-key.pem:/localhost-key.pem

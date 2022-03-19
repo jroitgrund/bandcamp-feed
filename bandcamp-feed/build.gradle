@@ -33,6 +33,7 @@ jooq {
 
     configurations {
         main {
+            generateSchemaSourceOnCompilation = false
             generationTool {
                 jdbc {
                     driver = 'org.sqlite.JDBC'
@@ -100,7 +101,7 @@ docker {
 }
 
 task copyFe(type: Copy) {
-    from "../bandcamp-feed-fe/dist"
+    from "../bandcamp-feed-fe/out"
     into "build/docker/fe-dist"
 }
 

@@ -13,3 +13,9 @@ export interface NewFeed {
   name: string;
   prefixes: Array<BandcampPrefix>;
 }
+
+export function getFeeds() {
+  return fetch("/api/feeds", {
+    headers: new Headers({ Accept: "application/json" }),
+  });
+}
