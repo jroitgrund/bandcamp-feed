@@ -20,6 +20,8 @@ create table releases (
     release_date text not null,
     primary key (release_id, url, title, artist, release_date)
 );
+create index releases_release_date_release_id
+on releases(release_date, release_id);
 
 create table releases_prefixes (
     release_id text not null,

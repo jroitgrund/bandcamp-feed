@@ -14,13 +14,28 @@ export interface NewFeed {
   prefixes: Array<BandcampPrefix>;
 }
 
+export interface FeedWithReleases {
+  name: string;
+  releases: Release[];
+}
+
+export interface Release {
+  id: string;
+  url: string;
+  title: string;
+  artist: string;
+  prefix: string;
+}
+
 export function getFeeds() {
   return fetch("/api/feeds", {
     headers: new Headers({ Accept: "application/json" }),
   });
 }
 
-export async function getUserPrefixes(username: string) {
+export async function getUserPrefixes(
+  username: string
+): Promise<BandcampPrefix[]> {
   return (
     await fetch(`/api/user/${username}`, {
       headers: new Headers({
@@ -54,4 +69,18 @@ export function createFeed(feed: NewFeed) {
       prefixes: feed.prefixes.map((p) => p.bandcampPrefix),
     }),
   });
+}
+
+export async function deleteFeed(feedId: string) {
+  return fetch(`/api/feed/${feedId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getFeed(feedId: string): Promise<FeedWithReleases> {
+  return (
+    await fetch(`/api/feed/${feedId}`, {
+      headers: new Headers({ Accept: "application/json" }),
+    })
+  ).json();
 }

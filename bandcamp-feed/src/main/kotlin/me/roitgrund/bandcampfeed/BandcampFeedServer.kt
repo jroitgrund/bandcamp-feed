@@ -16,6 +16,7 @@ import io.ktor.features.*
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.locations.*
+import io.ktor.locations.delete as locationsDelete
 import io.ktor.locations.post
 import io.ktor.locations.put as locationsPut
 import io.ktor.request.*
@@ -45,6 +46,8 @@ fun main(args: Array<String>): Unit = EngineMain.main(args)
 class Locations {
 
   @Location("/api/new-feed") class NewFeed
+
+  @Location("/api/feed/{feedId}.rss") data class RssFeed(val feedId: String)
 
   @Location("/api/feed/{feedId}") data class Feed(val feedId: String)
 
@@ -187,6 +190,19 @@ fun Application.module() {
       }
     }
 
+    locationsDelete<Locations.Feed> { feedRequest ->
+      val session = call.sessions.get<UserSession>()
+      if (session == null) {
+        call.response.status(HttpStatusCode.Unauthorized)
+      } else {
+        if (!storage.deleteFeed(feedRequest.feedId)) {
+          call.response.status(HttpStatusCode.NotFound)
+        } else {
+          call.response.status(HttpStatusCode.OK)
+        }
+      }
+    }
+
     get<Locations.User> { user ->
       if (call.sessions.get<UserSession>() == null) {
         call.response.status(HttpStatusCode.Unauthorized)
@@ -198,14 +214,22 @@ fun Application.module() {
     }
 
     get<Locations.Feed> { feedRequest ->
+      val fromId = call.request.queryParameters["fromId"]
+      val fromDate = call.request.queryParameters["fromDate"]
+      val feedId = feedRequest.feedId
+      val (name, releases) = checkNotNull(storage.getFeedReleases(feedId, fromId, fromDate, 100))
+      call.respond(BandcampFeed(name, releases))
+    }
+
+    get<Locations.RssFeed> { feedRequest ->
       call.respondOutputStream(ContentType.Application.Rss) {
         val feedId = feedRequest.feedId
-        val (name, releases) = checkNotNull(storage.getFeedReleases(feedId))
+        val (name, releases) = checkNotNull(storage.getFeedReleases(feedId, null, null, null))
 
         val feed: SyndFeed = SyndFeedImpl()
 
         feed.title = name
-        feed.link = call.getUrl(application.locations.href(Locations.Feed(feedRequest.feedId)))
+        feed.link = call.getUrl(application.locations.href(Locations.RssFeed(feedRequest.feedId)))
         feed.description = name
         feed.entries = releases.map(::entry)
         feed.feedType = "rss_2.0"

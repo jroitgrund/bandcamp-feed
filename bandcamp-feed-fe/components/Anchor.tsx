@@ -7,7 +7,7 @@ export default function Anchor(
   > & { className?: Argument }
 ) {
   return (
-    <a
+    <span
       {...props}
       className={classNames(
         "cursor-pointer hover:underline decoration-wavy decoration-pink-500",

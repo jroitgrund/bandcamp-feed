@@ -44,7 +44,7 @@ internal class BandcampFeedServerKtTest {
 
       (0..60).forEach { i ->
         try {
-          assertEquals(
+          val expected =
               listOf(
                   BandcampRelease(
                       "2072740262",
@@ -59,8 +59,16 @@ internal class BandcampFeedServerKtTest {
                       "Lovers Revenge",
                       "LOVERS REVENGE",
                       LocalDate.parse("2015-01-22"),
-                      "romancemoderne")),
-              checkNotNull(storage.getFeedReleases(feedId))
+                      "romancemoderne"))
+
+          val releases = getReleasesPaginated(storage, feedId)
+          assertEquals(
+              expected,
+              releases.dropWhile { it.date.isAfter(LocalDate.parse("2020-04-01")) }.take(2))
+
+          assertEquals(
+              expected,
+              checkNotNull(storage.getFeedReleases(feedId, null, null, null))
                   .second
                   .dropWhile { it.date.isAfter(LocalDate.parse("2020-04-01")) }
                   .take(2))
@@ -72,5 +80,22 @@ internal class BandcampFeedServerKtTest {
         }
       }
     }
+  }
+
+  private suspend fun getReleasesPaginated(
+      storage: SqlStorage,
+      feedId: String
+  ): MutableList<BandcampRelease> {
+    val releases = mutableListOf<BandcampRelease>()
+    var curr: Pair<String, List<BandcampRelease>>? = null
+    while (curr == null || curr.second.isNotEmpty()) {
+      val next =
+          checkNotNull(
+              storage.getFeedReleases(
+                  feedId, curr?.second?.last()?.id, curr?.second?.last()?.date?.toString(), 1))
+      releases.addAll(next.second)
+      curr = next
+    }
+    return releases
   }
 }

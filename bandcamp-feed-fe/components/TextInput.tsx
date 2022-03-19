@@ -4,9 +4,9 @@ export default function TextInput(
   props: React.DetailedHTMLProps<
     React.InputHTMLAttributes<HTMLInputElement>,
     HTMLInputElement
-  > & { className?: Argument }
+  > & { className?: Argument; prefix?: string }
 ) {
-  return (
+  return props.prefix == null ? (
     <input
       type="text"
       {...props}
@@ -15,5 +15,19 @@ export default function TextInput(
         props.className
       )}
     />
+  ) : (
+    <div
+      className={classNames(
+        "bg-pink-200 p-1 border-pink-300 border-4",
+        props.className
+      )}
+    >
+      {props.prefix}
+      <input
+        type="text"
+        className="bg-pink-200 placeholder-gray-500 focus:outline-none"
+        {...props}
+      />
+    </div>
   );
 }

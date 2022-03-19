@@ -164,9 +164,14 @@ class SqlStorage(url: String) {
     }
   }
 
-  suspend fun getFeedReleases(feedId: String): Pair<String, List<BandcampRelease>>? {
+  suspend fun getFeedReleases(
+      feedId: String,
+      fromId: String?,
+      fromDate: String?,
+      pageSize: Int?
+  ): Pair<String, List<BandcampRelease>>? {
     return runWithConnection { c ->
-      val releases =
+      val select =
           c.select(asterisk())
               .from(Feeds.FEEDS)
               .join(FeedsPrefixes.FEEDS_PREFIXES)
@@ -178,8 +183,28 @@ class SqlStorage(url: String) {
               .join(Releases.RELEASES)
               .on(ReleasesPrefixes.RELEASES_PREFIXES.RELEASE_ID.eq(Releases.RELEASES.RELEASE_ID))
               .where(Feeds.FEEDS.FEED_ID.eq(feedId))
-              .fetch()
-              .toList()
+      val paginatedSelect =
+          if (fromDate != null && fromId != null) {
+            select
+                .and(Releases.RELEASES.RELEASE_DATE.lt(fromDate))
+                .or(
+                    Releases.RELEASES
+                        .RELEASE_DATE
+                        .eq(fromDate)
+                        .and(Releases.RELEASES.RELEASE_ID.lt(fromId)))
+          } else {
+            select
+          }
+      val orderedSelect =
+          paginatedSelect.orderBy(
+              Releases.RELEASES.RELEASE_DATE.desc(), Releases.RELEASES.RELEASE_ID.desc())
+      val limitedSelect =
+          if (pageSize != null) {
+            orderedSelect.limit(pageSize)
+          } else {
+            orderedSelect
+          }
+      val releases = limitedSelect.fetch().toList()
       if (releases.isEmpty()) {
         val name =
             c.select(Feeds.FEEDS.FEED_NAME)
@@ -205,7 +230,6 @@ class SqlStorage(url: String) {
                       LocalDate.parse(releaseRecord.releaseDate),
                       it.into(ReleasesPrefixes.RELEASES_PREFIXES).bandcampPrefix)
                 }
-                .sortedByDescending(BandcampRelease::date)
                 .toList())
       }
     }
@@ -241,6 +265,12 @@ class SqlStorage(url: String) {
           .limit(2)
           .fetch(BandcampPrefixes.BANDCAMP_PREFIXES.BANDCAMP_PREFIX)
           .firstOrNull()
+    }
+  }
+
+  suspend fun deleteFeed(feedId: String): Boolean {
+    return runWithConnection { c ->
+      c.deleteFrom(Feeds.FEEDS).where(Feeds.FEEDS.FEED_ID.eq(feedId)).execute() == 1
     }
   }
 

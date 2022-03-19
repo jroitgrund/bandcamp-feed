@@ -6,11 +6,14 @@ import { getFeeds } from "../lib/api";
 import { useRouter } from "next/router";
 import Anchor from "../components/Anchor";
 import Link from "next/link";
+import Loading from "../components/Loading";
+import classNames from "classnames";
 
 function AppState({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const [state, setState] = useState<IAppContext>({
-    feeds: [],
+    feeds: undefined,
+    loading: 0,
     loadFeeds: async () => {
       const result = await getFeeds();
 
@@ -18,19 +21,19 @@ function AppState({ Component, pageProps }: AppProps) {
         router.replace("/login");
       } else {
         const feeds = await result.json();
-        setState({
-          ...state,
+        setState((s) => ({
+          ...s,
           feeds,
-        });
+        }));
       }
     },
+    startLoading: () => {
+      setState((s) => ({ ...s, loading: s.loading + 1 }));
+    },
+    doneLoading: () => {
+      setState((s) => ({ ...s, loading: s.loading - 1 }));
+    },
   });
-
-  const loadFeeds = state.loadFeeds;
-
-  useEffect(() => {
-    loadFeeds();
-  }, [loadFeeds]);
 
   return (
     <AppContext.Provider value={state}>
@@ -41,13 +44,20 @@ function AppState({ Component, pageProps }: AppProps) {
               <Link href="/">bandcamp-feed</Link>
             </div>
             <div className="text-lg">
-              <Anchor href="https://github.com/jroitgrund">github</Anchor>
-              &nbsp;|&nbsp;
-              <Anchor onClick={() => null}>help</Anchor>
+              <a
+                href="https://github.com/jroitgrund/bandcamp-feed"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Anchor>github</Anchor>
+              </a>
             </div>
           </div>
           <div>
-            <Component {...pageProps} />
+            {state.loading > 0 ? <Loading /> : null}
+            <div className={classNames({ hidden: state.loading })}>
+              <Component {...pageProps} />
+            </div>
           </div>
         </div>
       </div>
