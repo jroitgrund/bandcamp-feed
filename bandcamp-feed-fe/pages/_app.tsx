@@ -1,10 +1,11 @@
 import "../styles/globals.css";
 import type { AppProps } from "next/app";
-import { useCallback, useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AppContext, IAppContext } from "../lib/context";
 import { getFeeds } from "../lib/api";
 import { useRouter } from "next/router";
-import { linkClasses } from "../lib/css";
+import Anchor from "../components/Anchor";
+import Link from "next/link";
 
 function AppState({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -37,16 +38,12 @@ function AppState({ Component, pageProps }: AppProps) {
         <div className="mx-auto max-w-4xl min-h-screen p-2">
           <div className="border-b-4 border-b-pink-500 flex justify-between mb-10 font-mono">
             <div className="text-xl cursor-default hover:text-pink-500">
-              bandcamp-feed
+              <Link href="/">bandcamp-feed</Link>
             </div>
             <div className="text-lg">
-              <a className={linkClasses} href="https://github.com/jroitgrund">
-                github
-              </a>
+              <Anchor href="https://github.com/jroitgrund">github</Anchor>
               &nbsp;|&nbsp;
-              <a className={linkClasses} onClick={() => null}>
-                help
-              </a>
+              <Anchor onClick={() => null}>help</Anchor>
             </div>
           </div>
           <div>

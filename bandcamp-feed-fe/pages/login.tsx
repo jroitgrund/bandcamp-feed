@@ -1,11 +1,11 @@
-import classNames from "classnames";
-import { buttonClasses } from "../lib/css";
+import Button from "../components/Button";
 
 export default function Login() {
   return (
     <div className="flex flex-col items-center">
-      <a className={classNames(buttonClasses, "text-3xl")} href="/api/login">
-        Log in
+      {/*eslint-disable-next-line @next/next/no-html-link-for-pages*/}
+      <a href="/api/login">
+        <Button className="text-3xl">Log in</Button>
       </a>
     </div>
   );

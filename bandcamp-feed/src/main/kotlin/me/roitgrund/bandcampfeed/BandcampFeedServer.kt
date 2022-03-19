@@ -29,7 +29,11 @@ import org.flywaydb.core.Flyway
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.OutputStreamWriter
+import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.io.path.isDirectory
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.listDirectoryEntries
 import io.ktor.locations.put as locationsPut
 
 object BandcampFeedServer {
@@ -73,6 +77,14 @@ data class UserFeed(val id: String, val name: String, val prefixes: Set<Bandcamp
 @Serializable data class UserSession(val email: String)
 
 @Serializable data class FeedRequest(val name: String, val prefixes: Set<String>)
+
+fun maybeHtmlInsideDir(dir: Path): Path? {
+  if (dir.isDirectory()) {
+    return dir.listDirectoryEntries("*.html").firstOrNull()
+  }
+
+  return null
+}
 
 fun Application.module() {
   val jsonSerializer = Json { ignoreUnknownKeys = true }
@@ -137,10 +149,7 @@ fun Application.module() {
 
     get<Locations.Home> { call.respondFile(Paths.get("/static/index.html").toFile()) }
 
-    static("/static") {
-      files(Paths.get("/static").toFile())
-      file("{...}", "/static/index.html")
-    }
+    static("/static") { files(Paths.get("/static").toFile()) }
 
     get<Locations.Feeds> {
       val session = call.sessions.get<UserSession>()
@@ -207,6 +216,21 @@ fun Application.module() {
       }
     }
 
-    get("{...}") { call.respondFile(Paths.get("/static/index.html").toFile()) }
+    get("{...}") {
+      val staticPath = Paths.get("/static/", "${call.request.path()}.html")
+      val dynamicNoParamPath = maybeHtmlInsideDir(Paths.get("/static/", "${call.request.path()}"))
+      val dynamicPath = maybeHtmlInsideDir(Paths.get("/static/", "${call.request.path()}").parent)
+      if (staticPath.isRegularFile()) {
+        call.respondFile(staticPath.toFile())
+      } else if (dynamicNoParamPath?.isRegularFile() == true &&
+          Regex("\\[.*\\]").containsMatchIn(dynamicNoParamPath.toString())) {
+        call.respondFile(dynamicNoParamPath.toFile())
+      } else if (dynamicPath?.isRegularFile() == true &&
+          Regex("\\[.*\\]").containsMatchIn(dynamicPath.toString())) {
+        call.respondFile(dynamicPath.toFile())
+      } else {
+        call.response.status(HttpStatusCode.NotFound)
+      }
+    }
   }
 }

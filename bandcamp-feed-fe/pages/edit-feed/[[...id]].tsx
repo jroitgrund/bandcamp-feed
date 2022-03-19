@@ -1,11 +1,19 @@
-import classNames from "classnames";
 import { sortBy, filter, concat, find } from "lodash";
 import { useRouter } from "next/router";
-import { useState, useMemo, useCallback, ChangeEvent } from "react";
-import { BandcampPrefix, Feed, NewFeed } from "../../lib/api";
+import React, { useState, useMemo, useCallback, ChangeEvent } from "react";
+import {
+  BandcampPrefix,
+  createFeed,
+  Feed,
+  getUserPrefixes,
+  NewFeed,
+  updateFeed,
+} from "../../lib/api";
 import { AppContext } from "../../lib/context";
 import Link from "next/link";
-import { inputClasses, buttonClasses, inlineLinkClasses } from "../../lib/css";
+import Button from "../../components/Button";
+import TextInput from "../../components/TextInput";
+import InlineAnchor from "../../components/InlineAnchor";
 
 export default function EditFeed() {
   const router = useRouter();
@@ -42,6 +50,8 @@ function EditFeedImpl(props: {
   feed: Feed | NewFeed;
   loadFeeds: () => Promise<void>;
 }) {
+  const { loadFeeds } = props;
+  const router = useRouter();
   const [feed, setFeed] = useState(props.feed);
   const [username, setUsername] = useState("");
   const [availablePrefixes, setAvailablePrefixes] = useState<
@@ -73,46 +83,20 @@ function EditFeedImpl(props: {
 
   const loadFromUser = useCallback(async () => {
     setAvailablePrefixes(
-      sortBy(
-        await (
-          await fetch(`/api/user/${username}`, {
-            headers: new Headers({
-              Accept: "application/json",
-            }),
-          })
-        ).json(),
-        (prefix) => prefix.name
-      )
+      sortBy(await getUserPrefixes(username), (prefix) => prefix.name)
     );
   }, [username]);
 
   const save = useCallback(async () => {
     if ("id" in feed) {
-      await fetch(`/api/feed/${feed.id}`, {
-        headers: new Headers({
-          "Content-Type": "application/json",
-        }),
-        method: "PUT",
-        body: JSON.stringify({
-          name: feed.name,
-          prefixes: feed.prefixes.map((p) => p.bandcampPrefix),
-        }),
-      });
+      await updateFeed(feed);
     } else {
-      await fetch("/api/new-feed", {
-        headers: new Headers({
-          "Content-Type": "application/json",
-        }),
-        method: "POST",
-        body: JSON.stringify({
-          name: feed.name,
-          prefixes: feed.prefixes.map((p) => p.bandcampPrefix),
-        }),
-      });
+      await createFeed(feed);
     }
 
-    await props.loadFeeds();
-  }, [props, feed]);
+    await loadFeeds();
+    router.push("/");
+  }, [loadFeeds, feed, router]);
 
   const removePrefix = useCallback((prefix: string) => {
     setFeed((f) => ({
@@ -131,45 +115,36 @@ function EditFeedImpl(props: {
   return (
     <div className="flex gap-8 flex-col">
       <div className="flex gap-2">
-        <input
+        <TextInput
           type="text"
           value={feed.name}
           onChange={updateFeedName}
           placeholder="Feed name..."
-          className={inputClasses}
           minLength={1}
         />
-        <button
+        <Button
           value="Save"
-          className={buttonClasses}
           onClick={save}
           disabled={feed.name.length === 0 || feed.prefixes.length === 0}
         >
           Save
-        </button>
+        </Button>
         <Link href="/" passHref={true}>
-          <button value="Cancel" className={buttonClasses}>
-            Cancel
-          </button>
+          <Button>Cancel</Button>
         </Link>
       </div>
       {feed.prefixes.length === 0 && availablePrefixes.length === 0 ? (
         <div className="flex justify-center mt-5">
           <div className="flex gap-1">
-            <input
+            <TextInput
               type="text"
               value={username}
               onChange={updateUsername}
               placeholder="Bandcamp username..."
-              className={inputClasses}
             />
-            <button
-              className={buttonClasses}
-              onClick={loadFromUser}
-              disabled={username.length === 0}
-            >
+            <Button onClick={loadFromUser} disabled={username.length === 0}>
               Load from user
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -187,20 +162,15 @@ function EditFeedImpl(props: {
           </div>
           {availablePrefixes.length === 0 ? (
             <div className="flex gap-2">
-              <input
+              <TextInput
                 type="text"
                 value={username}
                 onChange={updateUsername}
                 placeholder="Bandcamp username..."
-                className={inputClasses}
               />
-              <button
-                className={buttonClasses}
-                onClick={loadFromUser}
-                disabled={username.length === 0}
-              >
+              <Button onClick={loadFromUser} disabled={username.length === 0}>
                 Load from user
-              </button>
+              </Button>
             </div>
           ) : (
             <ul>
@@ -229,9 +199,7 @@ function Prefix(props: {
   return (
     <li>
       {props.prefix.name}{" "}
-      <a className={classNames(inlineLinkClasses)} onClick={removePrefix}>
-        remove
-      </a>
+      <InlineAnchor onClick={removePrefix}>remove</InlineAnchor>
     </li>
   );
 }
@@ -246,9 +214,7 @@ function AvailablePrefix(props: {
   return (
     <li className="flex gap-2">
       {props.prefix.name}
-      <a className={classNames(inlineLinkClasses)} onClick={addPrefix}>
-        add
-      </a>
+      <InlineAnchor onClick={addPrefix}>add</InlineAnchor>
     </li>
   );
 }

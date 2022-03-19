@@ -1,9 +1,9 @@
-import classNames from "classnames";
-import { useCallback } from "react";
+import React, { useCallback } from "react";
 import { Feed } from "../lib/api";
 import Link from "next/link";
 import { AppContext } from "../lib/context";
-import { buttonClasses, linkClasses } from "../lib/css";
+import Button from "../components/Button";
+import Anchor from "../components/Anchor";
 
 export default function Feeds() {
   return (
@@ -21,9 +21,7 @@ function FeedsImpl(props: { feeds: Array<Feed> }) {
           <div className="text-3xl">You don&apos;t have any feeds yet</div>
           <div>
             <Link href="/edit-feed" passHref={true}>
-              <button className={classNames(buttonClasses)}>
-                Create a feed
-              </button>
+              <Button>Create a feed</Button>
             </Link>
           </div>
         </div>
@@ -31,7 +29,7 @@ function FeedsImpl(props: { feeds: Array<Feed> }) {
         <div className="flex flex-col gap-4">
           <div>
             <Link href="/edit-feed" passHref={true}>
-              <button className={classNames(buttonClasses)}>Create feed</button>
+              <Button>Create a feed</Button>
             </Link>
           </div>
           <div className="bg-pink-300 p-2">
@@ -52,7 +50,7 @@ function FeedItem(props: { feed: Feed }) {
   const copyUrl = useCallback(
     () =>
       navigator.clipboard.writeText(
-        `${window.location.protocol}//${window.location.host}/feed/${props.feed.id}`
+        `${window.location.protocol}//${window.location.host}/api/feed/${props.feed.id}`
       ),
     [props]
   );
@@ -61,14 +59,12 @@ function FeedItem(props: { feed: Feed }) {
       <div>{props.feed.name}</div>
       <div className="flex gap-4">
         <div>
-          <Link href={`/edit-feed/${props.feed.id}`}>
-            <a className={linkClasses}>Edit</a>
+          <Link href={`/edit-feed/${props.feed.id}`} passHref={true}>
+            <Anchor>Edit</Anchor>
           </Link>
         </div>
         <div>
-          <a className={linkClasses} onClick={copyUrl}>
-            Copy URL
-          </a>
+          <Anchor onClick={copyUrl}>Copy URL</Anchor>
         </div>
       </div>
     </li>
