@@ -124,6 +124,15 @@ fun Application.module() {
       client = httpClient
     }
     install(ContentNegotiation) { json() }
+    install(CachingHeaders) {
+      options { outgoingContent ->
+        when (outgoingContent.contentType?.withoutParameters()) {
+          ContentType.Text.CSS, ContentType.Application.JavaScript ->
+              CachingOptions(CacheControl.MaxAge(maxAgeSeconds = 31536000))
+          else -> CachingOptions(CacheControl.NoStore(null))
+        }
+      }
+    }
   }
 
   val bandcampClient = BandcampClient(jsonSerializer, httpClient)
