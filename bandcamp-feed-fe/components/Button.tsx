@@ -19,7 +19,7 @@ export default function Button(
       {props.children}
       &nbsp;
       {props.isLoading ? (
-        <HeartIcon className="h-5 w-5 text-pink-500 animate-spin inline-block" />
+        <HeartIcon className="h-5 w-5 text-pink-500 animate-ping inline-block" />
       ) : null}
     </button>
   );

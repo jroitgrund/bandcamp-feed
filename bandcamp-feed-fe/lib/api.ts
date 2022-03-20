@@ -17,6 +17,7 @@ export interface NewFeed {
 export interface FeedWithReleases {
   name: string;
   releases: Release[];
+  nextPageKey?: string;
 }
 
 export interface Release {
@@ -25,6 +26,7 @@ export interface Release {
   title: string;
   artist: string;
   prefix: string;
+  date: string;
 }
 
 export function getFeeds() {
@@ -77,10 +79,16 @@ export async function deleteFeed(feedId: string) {
   });
 }
 
-export async function getFeed(feedId: string): Promise<FeedWithReleases> {
+export async function getFeed(
+  feedId: string,
+  nextPageKey?: string
+): Promise<FeedWithReleases> {
   return (
-    await fetch(`/api/feed/${feedId}`, {
-      headers: new Headers({ Accept: "application/json" }),
-    })
+    await fetch(
+      `/api/feed/${feedId}${nextPageKey != null ? `?page=${nextPageKey}` : ""}`,
+      {
+        headers: new Headers({ Accept: "application/json" }),
+      }
+    )
   ).json();
 }

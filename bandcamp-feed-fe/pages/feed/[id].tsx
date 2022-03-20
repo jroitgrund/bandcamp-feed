@@ -1,11 +1,13 @@
 import { useRouter } from "next/router";
-import React, { useState, useEffect } from "react";
-import { FeedWithReleases, getFeed } from "../../lib/api";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { FeedWithReleases, getFeed, getFeeds } from "../../lib/api";
 import { AppContext } from "../../lib/context";
 import BandcampPlayer from "../../components/BandcampPlayer";
-import { HomeIcon } from "@heroicons/react/solid";
+import { HeartIcon, HomeIcon } from "@heroicons/react/solid";
+import { EyeIcon } from "@heroicons/react/outline";
 import Link from "next/link";
 import Anchor from "../../components/Anchor";
+import InfiniteScroll from "react-infinite-scroll-component";
 
 export default function FeedPage() {
   const router = useRouter();
@@ -33,18 +35,36 @@ function FeedPageImpl(props: {
   startLoading: () => void;
   doneLoading: () => void;
 }) {
-  const [feed, setFeed] = useState<FeedWithReleases | undefined>(undefined);
   const { id, startLoading, doneLoading } = props;
+
+  const [feed, setFeed] = useState<FeedWithReleases | undefined>(undefined);
+  const releases = useMemo(() => (feed != null ? feed.releases : []), [feed]);
 
   useEffect(() => {
     if (feed == null) {
-      startLoading();
       getFeed(id).then((feed) => {
         setFeed(feed);
-        doneLoading();
       });
     }
-  }, [id, feed, startLoading, doneLoading]);
+  }, [id, feed]);
+
+  const nextPage = useCallback(() => {
+    getFeed(id, feed?.nextPageKey).then((newFeed) => {
+      setTimeout(
+        () =>
+          setFeed({
+            ...newFeed,
+            releases: [...releases, ...newFeed.releases],
+          })
+        // 20000
+      );
+    });
+  }, [id, feed, releases]);
+
+  const items = useMemo(
+    () => releases.map((r) => <BandcampPlayer id={r.id} key={r.id} />),
+    [releases]
+  );
 
   if (feed == null) {
     return null;
@@ -61,11 +81,23 @@ function FeedPageImpl(props: {
         </a>
       </Link>
       <div className="mb-2 font-bold text-lg">{feed.name}</div>
-      <div className="flex flex-col gap-4">
-        {feed.releases.map((r) => (
-          <BandcampPlayer id={r.id} key={r.id} />
-        ))}
-      </div>
+      <InfiniteScroll
+        dataLength={items.length}
+        next={nextPage}
+        hasMore={feed.nextPageKey != null}
+        loader={
+          <div className="flex justify-center mt-8 mb-8">
+            <HeartIcon className="h-5 w-5 text-pink-500 animate-ping" />
+          </div>
+        }
+        endMessage={
+          <div className="flex justify-center mt-8 mb-8">
+            <EyeIcon className="h-5 w-5 text-pink-400" />
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">{items}</div>
+      </InfiniteScroll>
     </>
   );
 }

@@ -166,10 +166,9 @@ class SqlStorage(url: String) {
 
   suspend fun getFeedReleases(
       feedId: String,
-      fromId: String?,
-      fromDate: String?,
+      fromPage: NextPageKey?,
       pageSize: Int?
-  ): Pair<String, List<BandcampRelease>>? {
+  ): BandcampFeed? {
     return runWithConnection { c ->
       val select =
           c.select(asterisk())
@@ -184,14 +183,16 @@ class SqlStorage(url: String) {
               .on(ReleasesPrefixes.RELEASES_PREFIXES.RELEASE_ID.eq(Releases.RELEASES.RELEASE_ID))
               .where(Feeds.FEEDS.FEED_ID.eq(feedId))
       val paginatedSelect =
-          if (fromDate != null && fromId != null) {
-            select
-                .and(Releases.RELEASES.RELEASE_DATE.lt(fromDate))
-                .or(
-                    Releases.RELEASES
-                        .RELEASE_DATE
-                        .eq(fromDate)
-                        .and(Releases.RELEASES.RELEASE_ID.lt(fromId)))
+          if (fromPage != null) {
+            select.and(
+                Releases.RELEASES
+                    .RELEASE_DATE
+                    .lessOrEqual(fromPage.date.toString())
+                    .or(
+                        Releases.RELEASES
+                            .RELEASE_DATE
+                            .eq(fromPage.date.toString())
+                            .and(Releases.RELEASES.RELEASE_ID.lessOrEqual(fromPage.id))))
           } else {
             select
           }
@@ -200,7 +201,7 @@ class SqlStorage(url: String) {
               Releases.RELEASES.RELEASE_DATE.desc(), Releases.RELEASES.RELEASE_ID.desc())
       val limitedSelect =
           if (pageSize != null) {
-            orderedSelect.limit(pageSize)
+            orderedSelect.limit(pageSize + 1)
           } else {
             orderedSelect
           }
@@ -212,12 +213,12 @@ class SqlStorage(url: String) {
                 .where(Feeds.FEEDS.FEED_ID.eq(feedId))
                 .fetchOne(Feeds.FEEDS.FEED_NAME)
         if (name != null) {
-          (name to emptyList())
+          BandcampFeed(name, emptyList(), null)
         } else {
           null
         }
       } else {
-        (releases.first().into(Feeds.FEEDS).feedName to
+        val bandcampReleases =
             releases
                 .asSequence()
                 .map {
@@ -230,7 +231,14 @@ class SqlStorage(url: String) {
                       LocalDate.parse(releaseRecord.releaseDate),
                       it.into(ReleasesPrefixes.RELEASES_PREFIXES).bandcampPrefix)
                 }
-                .toList())
+                .toList()
+        val limitForPagination = pageSize ?: bandcampReleases.size
+        val nextKey =
+            getNextKey(bandcampReleases.asSequence().drop(limitForPagination).firstOrNull())
+        BandcampFeed(
+            releases.first().into(Feeds.FEEDS).feedName,
+            bandcampReleases.asSequence().take(limitForPagination).toList(),
+            nextKey)
       }
     }
   }
@@ -276,5 +284,13 @@ class SqlStorage(url: String) {
 
   private suspend fun <T> runWithConnection(runnable: ((DSLContext) -> T)): T {
     return mutex.withLock { DSL.using(connection.get()).run(runnable) }
+  }
+
+  fun getNextKey(firstOrNull: BandcampRelease?): NextPageKey? {
+    if (firstOrNull == null) {
+      return null
+    }
+
+    return NextPageKey(firstOrNull.date, firstOrNull.id)
   }
 }

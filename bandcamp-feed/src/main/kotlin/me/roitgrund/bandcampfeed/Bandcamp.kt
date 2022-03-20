@@ -2,6 +2,7 @@ package me.roitgrund.bandcampfeed
 
 import io.ktor.http.*
 import java.time.LocalDate
+import java.util.regex.Pattern
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -35,6 +36,28 @@ object LocalDateSerializer : KSerializer<LocalDate> {
   }
 }
 
+object NextPageKeySerializer : KSerializer<NextPageKey> {
+  override fun deserialize(decoder: Decoder): NextPageKey {
+    val parts =
+        Pattern.compile("[^_]+")
+            .matcher(decoder.decodeString())
+            .results()
+            .map { it.group() }
+            .toList()
+    return NextPageKey(LocalDate.parse(parts[0]), parts[1])
+  }
+
+  override val descriptor: SerialDescriptor =
+      PrimitiveSerialDescriptor("NextPageKey", PrimitiveKind.STRING)
+
+  override fun serialize(encoder: Encoder, value: NextPageKey) {
+    encoder.encodeString("${value.date}_${value.id}")
+  }
+}
+
+@Serializable(with = NextPageKeySerializer::class)
+data class NextPageKey(val date: LocalDate, val id: String)
+
 @Serializable
 data class BandcampRelease(
     val id: String,
@@ -55,4 +78,9 @@ data class BandcampReleaseIntermediate(
 
 @Serializable data class BandcampPrefix(val bandcampPrefix: String, val name: String)
 
-@Serializable data class BandcampFeed(val name: String, val releases: List<BandcampRelease>)
+@Serializable
+data class BandcampFeed(
+    val name: String,
+    val releases: List<BandcampRelease>,
+    val nextPageKey: NextPageKey?
+)

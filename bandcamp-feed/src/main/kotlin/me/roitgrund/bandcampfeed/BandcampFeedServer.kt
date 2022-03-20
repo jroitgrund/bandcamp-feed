@@ -32,6 +32,7 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.flywaydb.core.Flyway
 import org.slf4j.Logger
@@ -214,17 +215,22 @@ fun Application.module() {
     }
 
     get<Locations.Feed> { feedRequest ->
-      val fromId = call.request.queryParameters["fromId"]
-      val fromDate = call.request.queryParameters["fromDate"]
+      val pageQuery = call.request.queryParameters["page"]
+      val fromPage: NextPageKey? =
+          if (pageQuery != null) {
+            jsonSerializer.decodeFromString("\"$pageQuery\"")
+          } else {
+            null
+          }
       val feedId = feedRequest.feedId
-      val (name, releases) = checkNotNull(storage.getFeedReleases(feedId, fromId, fromDate, 100))
-      call.respond(BandcampFeed(name, releases))
+      val bandcampFeed = checkNotNull(storage.getFeedReleases(feedId, fromPage, 10))
+      call.respond(bandcampFeed)
     }
 
     get<Locations.RssFeed> { feedRequest ->
       call.respondOutputStream(ContentType.Application.Rss) {
         val feedId = feedRequest.feedId
-        val (name, releases) = checkNotNull(storage.getFeedReleases(feedId, null, null, null))
+        val (name, releases) = checkNotNull(storage.getFeedReleases(feedId, null, null))
 
         val feed: SyndFeed = SyndFeedImpl()
 
