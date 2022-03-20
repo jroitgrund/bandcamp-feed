@@ -146,38 +146,40 @@ function FollowImpl(props: {
           ))}
         </ul>
         <div className="basis-2/3">
-          {selectedPrefix == null ? null : (
-            <>
-              <div className="font-bold text-pink-500 mb-2">
-                {selectedPrefix?.name}
-              </div>
-              <ul className="flex flex-wrap gap-2 mb-2">
-                {feeds.map((feed) => (
-                  <li key={feed.id}>
-                    <Button
-                      disabled={loading != null}
-                      isLoading={loading === feed.id}
-                      onClick={() => addToFeed(selectedPrefix, feed)}
-                    >
-                      add to {feed.name}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-              <TextInput
-                className="mr-2"
-                value={newFeedName}
-                onChange={(e) => setNewFeedName(e.target.value)}
-              />
-              <Button
-                disabled={loading != null}
-                isLoading={loading === NEW_FEED_LOADING}
-                onClick={() => addToNewFeed(selectedPrefix, newFeedName)}
-              >
-                add to new feed
-              </Button>
-            </>
-          )}
+          <div className="sticky top-4">
+            {selectedPrefix == null ? null : (
+              <>
+                <div className="font-bold text-pink-500 mb-2">
+                  {selectedPrefix?.name}
+                </div>
+                <ul className="flex flex-wrap gap-2 mb-2">
+                  {feeds.map((feed) => (
+                    <li key={feed.id}>
+                      <Button
+                        disabled={loading != null}
+                        isLoading={loading === feed.id}
+                        onClick={() => addToFeed(selectedPrefix, feed)}
+                      >
+                        add to {feed.name}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                <TextInput
+                  className="mr-2"
+                  value={newFeedName}
+                  onChange={(e) => setNewFeedName(e.target.value)}
+                />
+                <Button
+                  disabled={loading != null}
+                  isLoading={loading === NEW_FEED_LOADING}
+                  onClick={() => addToNewFeed(selectedPrefix, newFeedName)}
+                >
+                  add to new feed
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </>
