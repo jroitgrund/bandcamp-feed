@@ -4,7 +4,9 @@ import com.google.common.base.Suppliers
 import io.ktor.http.*
 import java.sql.Connection
 import java.sql.DriverManager
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.*
 import java.util.function.Supplier
 import kotlinx.coroutines.sync.Mutex
@@ -153,7 +155,7 @@ class SqlStorage(url: String) {
         release.url = bandcampRelease.url.toString()
         release.title = bandcampRelease.title
         release.artist = bandcampRelease.artist
-        release.releaseDate = bandcampRelease.date.toString()
+        release.releaseDate = bandcampRelease.date
         release.store()
 
         val joinRecord = dsl.newRecord(ReleasesPrefixes.RELEASES_PREFIXES)
@@ -167,6 +169,8 @@ class SqlStorage(url: String) {
   suspend fun getFeedReleases(
       feedId: String,
       fromPage: NextPageKey?,
+      fromDate: LocalDate?,
+      includePrereleases: Boolean,
       pageSize: Int?
   ): BandcampFeed? {
     return runWithConnection { c ->
@@ -187,17 +191,31 @@ class SqlStorage(url: String) {
             select.and(
                 Releases.RELEASES
                     .RELEASE_DATE
-                    .lessOrEqual(fromPage.date.toString())
+                    .lessOrEqual(fromPage.date)
                     .or(
                         Releases.RELEASES
                             .RELEASE_DATE
-                            .eq(fromPage.date.toString())
+                            .eq(fromPage.date)
                             .and(Releases.RELEASES.RELEASE_ID.lessOrEqual(fromPage.id))))
           } else {
             select
           }
+      val fromDateSelect =
+          if (fromPage == null && fromDate != null) {
+            paginatedSelect.and(Releases.RELEASES.RELEASE_DATE.lessOrEqual(fromDate))
+          } else {
+            paginatedSelect
+          }
+      val includePrereleasesSelect =
+          if (includePrereleases) {
+            fromDateSelect
+          } else {
+            fromDateSelect.and(
+                Releases.RELEASES.RELEASE_DATE.lessOrEqual(
+                    Instant.now().atZone(ZoneOffset.UTC).toLocalDate()))
+          }
       val orderedSelect =
-          paginatedSelect.orderBy(
+          includePrereleasesSelect.orderBy(
               Releases.RELEASES.RELEASE_DATE.desc(), Releases.RELEASES.RELEASE_ID.desc())
       val limitedSelect =
           if (pageSize != null) {
@@ -228,7 +246,7 @@ class SqlStorage(url: String) {
                       Url(releaseRecord.url),
                       releaseRecord.title,
                       releaseRecord.artist,
-                      LocalDate.parse(releaseRecord.releaseDate),
+                      releaseRecord.releaseDate,
                       it.into(ReleasesPrefixes.RELEASES_PREFIXES).bandcampPrefix)
                 }
                 .toList()

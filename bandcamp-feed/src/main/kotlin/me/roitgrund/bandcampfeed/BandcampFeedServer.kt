@@ -28,6 +28,7 @@ import io.ktor.sessions.*
 import java.io.OutputStreamWriter
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.time.LocalDate
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
@@ -231,15 +232,25 @@ fun Application.module() {
           } else {
             null
           }
+      val fromDateQuery = call.request.queryParameters["fromDate"]
+      val fromDate =
+          if (fromDateQuery != null) {
+            LocalDate.parse(fromDateQuery)
+          } else {
+            null
+          }
+      val includePrereleases =
+          (call.request.queryParameters["includePrereleases"] ?: "true").toBooleanStrict()
       val feedId = feedRequest.feedId
-      val bandcampFeed = checkNotNull(storage.getFeedReleases(feedId, fromPage, 10))
+      val bandcampFeed =
+          checkNotNull(storage.getFeedReleases(feedId, fromPage, fromDate, includePrereleases, 10))
       call.respond(bandcampFeed)
     }
 
     get<Locations.RssFeed> { feedRequest ->
       call.respondOutputStream(ContentType.Application.Rss) {
         val feedId = feedRequest.feedId
-        val (name, releases) = checkNotNull(storage.getFeedReleases(feedId, null, null))
+        val (name, releases) = checkNotNull(storage.getFeedReleases(feedId, null, null, true, null))
 
         val feed: SyndFeed = SyndFeedImpl()
 

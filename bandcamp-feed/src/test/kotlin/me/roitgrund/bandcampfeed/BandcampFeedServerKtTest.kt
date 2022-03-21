@@ -66,12 +66,12 @@ internal class BandcampFeedServerKtTest {
               expected,
               releases.dropWhile { it.date.isAfter(LocalDate.parse("2020-04-01")) }.take(2))
 
-          //          assertEquals(
-          //              expected,
-          //              checkNotNull(storage.getFeedReleases(feedId, null, null))
-          //                  .releases
-          //                  .dropWhile { it.date.isAfter(LocalDate.parse("2020-04-01")) }
-          //                  .take(2))
+          assertEquals(
+              expected,
+              checkNotNull(storage.getFeedReleases(feedId, null, null, true, null))
+                  .releases
+                  .dropWhile { it.date.isAfter(LocalDate.parse("2020-04-01")) }
+                  .take(2))
         } catch (e: AssertionFailedError) {
           if (i == 60) {
             throw e
@@ -89,7 +89,7 @@ internal class BandcampFeedServerKtTest {
     val releases = mutableListOf<BandcampRelease>()
     var curr: BandcampFeed? = null
     while (curr == null || curr.nextPageKey != null) {
-      val next = checkNotNull(storage.getFeedReleases(feedId, curr?.nextPageKey, 1))
+      val next = checkNotNull(storage.getFeedReleases(feedId, curr?.nextPageKey, null, true, 1))
       releases.addAll(next.releases)
       curr = next
     }

@@ -8,6 +8,9 @@ import { EyeIcon } from "@heroicons/react/outline";
 import Link from "next/link";
 import Anchor from "../../components/Anchor";
 import InfiniteScroll from "react-infinite-scroll-component";
+import Checkbox from "../../components/Checkbox";
+import TextInput from "../../components/TextInput";
+import Button from "../../components/Button";
 
 export default function FeedPage() {
   const router = useRouter();
@@ -35,31 +38,30 @@ function FeedPageImpl(props: {
   startLoading: () => void;
   doneLoading: () => void;
 }) {
-  const { id, startLoading, doneLoading } = props;
+  const { id } = props;
 
   const [feed, setFeed] = useState<FeedWithReleases | undefined>(undefined);
+  const [includePrereleases, setIncludePreleases] = useState(true);
+  const [fromDate, setFromDate] = useState<string | undefined>(undefined);
+  const [fromDateText, setFromDateText] = useState("");
   const releases = useMemo(() => (feed != null ? feed.releases : []), [feed]);
 
   useEffect(() => {
-    if (feed == null) {
-      getFeed(id).then((feed) => {
-        setFeed(feed);
-      });
-    }
-  }, [id, feed]);
+    getFeed(id, includePrereleases, fromDate).then((feed) => {
+      setFeed(feed);
+    });
+  }, [id, includePrereleases, fromDate]);
 
   const nextPage = useCallback(() => {
-    getFeed(id, feed?.nextPageKey).then((newFeed) => {
-      setTimeout(
-        () =>
-          setFeed({
-            ...newFeed,
-            releases: [...releases, ...newFeed.releases],
-          })
-        // 20000
-      );
-    });
-  }, [id, feed, releases]);
+    getFeed(id, includePrereleases, fromDate, feed?.nextPageKey).then(
+      (newFeed) => {
+        setFeed({
+          ...newFeed,
+          releases: [...releases, ...newFeed.releases],
+        });
+      }
+    );
+  }, [id, feed, releases, includePrereleases, fromDate]);
 
   const items = useMemo(
     () => releases.map((r) => <BandcampPlayer id={r.id} key={r.id} />),
@@ -72,14 +74,42 @@ function FeedPageImpl(props: {
 
   return (
     <>
-      <Link href="/" passHref={true}>
-        <a>
-          <div className="mb-2 flex items-center gap-1 leading-5">
-            <HomeIcon className="h-5 w-5 text-pink-400" />
-            <Anchor href="/">Back to feeds</Anchor>
-          </div>
-        </a>
-      </Link>
+      <div className="flex gap-4 items-center mb-2">
+        <div className="flex-1">
+          <Link href="/" passHref={true}>
+            <a>
+              <div className="flex items-center gap-1 leading-5">
+                <HomeIcon className="h-5 w-5 text-pink-400" />
+                <Anchor href="/">Back to feeds</Anchor>
+              </div>
+            </a>
+          </Link>
+        </div>
+        <Checkbox
+          label="include preleases"
+          onChange={(e) => setIncludePreleases(e.target.checked)}
+          checked={includePrereleases}
+        />
+        <div className="flex items-center gap-2">
+          <TextInput
+            type="text"
+            value={fromDateText}
+            onChange={(e) => setFromDateText(e.target.value)}
+            placeholder="dd/mm/yyyy"
+            pattern="\d\d/\d\d/\d\d\d\d"
+          />
+          <Button
+            onClick={() => {
+              const [_, day, month, year] = fromDateText.match(
+                /(\d\d)\/(\d\d)\/(\d\d\d\d)/
+              )!;
+              setFromDate(`${year}-${month}-${day}`);
+            }}
+          >
+            Start from date
+          </Button>
+        </div>
+      </div>
       <div className="mb-2 font-bold text-lg">{feed.name}</div>
       <InfiniteScroll
         dataLength={items.length}

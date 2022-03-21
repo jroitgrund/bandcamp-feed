@@ -50,7 +50,7 @@ function FeedsImpl(props: {
       {feeds.length === 0 ? (
         <div className="flex flex-col items-center gap-4">
           <div className="text-3xl">You don&apos;t have any feeds yet</div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <TextInput
               prefix="https://bandcamp.com/"
               onChange={(e) => setPrefix(e.target.value)}
@@ -65,7 +65,7 @@ function FeedsImpl(props: {
         </div>
       ) : (
         <div className="flex flex-col">
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-2 mb-4 items-center">
             <TextInput
               prefix="https://bandcamp.com/"
               onChange={(e) => setPrefix(e.target.value)}

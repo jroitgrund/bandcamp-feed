@@ -11,7 +11,7 @@ export default function TextInput(
       type="text"
       {...props}
       className={classNames(
-        "placeholder-gray-500 bg-pink-200 p-1 border-pink-300 border-4 focus:outline-none focus:border-pink-400",
+        "placeholder-gray-500 bg-pink-200 p-1 border-pink-300 border-4 focus:border-pink-400 focus:ring-0 invalid:border-gray-500 focus:invalid:border-gray-500",
         props.className
       )}
     />
@@ -25,7 +25,7 @@ export default function TextInput(
       {props.prefix}
       <input
         type="text"
-        className="bg-pink-200 placeholder-gray-500 focus:outline-none"
+        className="bg-pink-200 placeholder-gray-500 border-0 focus:ring-0 p-0 invalid:border-gray-500 focus:invalid:border-gray-500"
         {...props}
       />
     </div>

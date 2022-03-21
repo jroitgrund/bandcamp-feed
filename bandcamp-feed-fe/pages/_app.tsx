@@ -8,6 +8,7 @@ import Anchor from "../components/Anchor";
 import Link from "next/link";
 import Loading from "../components/Loading";
 import classNames from "classnames";
+import Head from "next/head";
 
 function AppState({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -37,6 +38,9 @@ function AppState({ Component, pageProps }: AppProps) {
 
   return (
     <AppContext.Provider value={state}>
+      <Head>
+        <title>bandcamp-feed</title>
+      </Head>
       <div className="min-h-screen v-screen bg-pink-200">
         <div className="mx-auto max-w-4xl min-h-screen p-2">
           <div className="border-b-4 border-b-pink-500 flex justify-between mb-10 font-mono">

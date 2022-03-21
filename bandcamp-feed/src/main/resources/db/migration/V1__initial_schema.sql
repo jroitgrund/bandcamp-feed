@@ -17,11 +17,11 @@ create table releases (
     url text not null,
     title text not null,
     artist text not null,
-    release_date text not null,
+    release_date date not null,
     primary key (release_id, url, title, artist, release_date)
 );
 create index releases_release_date_release_id
-on releases(release_date, release_id);
+on releases(date(release_date), release_id);
 
 create table releases_prefixes (
     release_id text not null,

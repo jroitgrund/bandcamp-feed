@@ -81,11 +81,15 @@ export async function deleteFeed(feedId: string) {
 
 export async function getFeed(
   feedId: string,
+  includePrereleases: boolean,
+  fromDate?: string,
   nextPageKey?: string
 ): Promise<FeedWithReleases> {
   return (
     await fetch(
-      `/api/feed/${feedId}${nextPageKey != null ? `?page=${nextPageKey}` : ""}`,
+      `/api/feed/${feedId}?includePrereleases=${includePrereleases}${
+        nextPageKey != null ? `&page=${nextPageKey}` : ""
+      }${fromDate != null ? `&fromDate=${fromDate}` : ""}`,
       {
         headers: new Headers({ Accept: "application/json" }),
       }
