@@ -18,7 +18,7 @@ export default function TextInput(
   ) : (
     <div
       className={classNames(
-        "bg-pink-200 p-1 border-pink-300 border-4",
+        "bg-pink-200 p-1 border-pink-300 border-4 focus-within:border-pink-400",
         props.className
       )}
     >

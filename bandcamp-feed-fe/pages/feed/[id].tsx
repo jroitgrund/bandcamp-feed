@@ -44,11 +44,14 @@ function FeedPageImpl(props: {
   const [includePrereleases, setIncludePreleases] = useState(true);
   const [fromDate, setFromDate] = useState<string | undefined>(undefined);
   const [fromDateText, setFromDateText] = useState("");
+  const [loading, setLoading] = useState(false);
   const releases = useMemo(() => (feed != null ? feed.releases : []), [feed]);
 
   useEffect(() => {
+    setLoading(true);
     getFeed(id, includePrereleases, fromDate).then((feed) => {
       setFeed(feed);
+      setLoading(false);
     });
   }, [id, includePrereleases, fromDate]);
 
@@ -67,10 +70,6 @@ function FeedPageImpl(props: {
     () => releases.map((r) => <BandcampPlayer id={r.id} key={r.id} />),
     [releases]
   );
-
-  if (feed == null) {
-    return null;
-  }
 
   return (
     <>
@@ -105,29 +104,39 @@ function FeedPageImpl(props: {
               )!;
               setFromDate(`${year}-${month}-${day}`);
             }}
+            disabled={loading}
           >
             Start from date
           </Button>
         </div>
       </div>
-      <div className="mb-2 font-bold text-lg">{feed.name}</div>
-      <InfiniteScroll
-        dataLength={items.length}
-        next={nextPage}
-        hasMore={feed.nextPageKey != null}
-        loader={
-          <div className="flex justify-center mt-8 mb-8">
-            <HeartIcon className="h-5 w-5 text-pink-500 animate-ping" />
-          </div>
-        }
-        endMessage={
-          <div className="flex justify-center mt-8 mb-8">
-            <EyeIcon className="h-5 w-5 text-pink-400" />
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-4">{items}</div>
-      </InfiniteScroll>
+      {feed != null ? (
+        <div className="mb-2 font-bold text-lg">{feed.name}</div>
+      ) : null}
+      {loading ? (
+        <div className="mt-20 flex justify-center">
+          <HeartIcon className="h-5 w-5 text-pink-500 animate-pulse" />
+        </div>
+      ) : null}
+      {feed != null && !loading ? (
+        <InfiniteScroll
+          dataLength={items.length}
+          next={nextPage}
+          hasMore={feed.nextPageKey != null}
+          loader={
+            <div className="flex justify-center mt-8 mb-8">
+              <HeartIcon className="h-5 w-5 text-pink-500 animate-ping" />
+            </div>
+          }
+          endMessage={
+            <div className="flex justify-center mt-8 mb-8">
+              <EyeIcon className="h-5 w-5 text-pink-400" />
+            </div>
+          }
+        >
+          <div className="flex flex-col gap-4">{items}</div>
+        </InfiniteScroll>
+      ) : null}
     </>
   );
 }
