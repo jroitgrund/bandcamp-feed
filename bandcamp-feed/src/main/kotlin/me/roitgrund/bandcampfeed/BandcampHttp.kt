@@ -25,11 +25,12 @@ import org.jsoup.Jsoup
 
 private val ITEM_ID_PATTERN: Pattern = Pattern.compile("(album|track)-(.*)")
 private val TITLE_PATTERN: Pattern = Pattern.compile("^(.*) <br>.*> (.*) </span")
+private val DATE_PATTERN: Pattern = Pattern.compile("(released|releases) (\\d.*)\n")
 private val DATE_FORMAT: DateTimeFormatter =
     DateTimeFormatterBuilder()
         .appendValue(ChronoField.DAY_OF_MONTH, 2)
         .appendLiteral(' ')
-        .appendText(ChronoField.MONTH_OF_YEAR, TextStyle.SHORT)
+        .appendText(ChronoField.MONTH_OF_YEAR, TextStyle.FULL)
         .appendLiteral(' ')
         .appendValue(ChronoField.YEAR, 4)
         .toFormatter(Locale.ENGLISH)
@@ -154,21 +155,10 @@ class BandcampClient(private val json: Json, private val client: HttpClient) {
               checkNotNull(
                   Jsoup.parse(getHtml(bandcampRelease.url))
                       .head()
-                      .selectFirst("[data-tralbum]")
-                      ?.attr("data-tralbum"))),
+                      .selectFirst("meta[name=description]")
+                      ?.attr("content"))),
           prefix)
     }
-  }
-
-  private fun parseDate(trAlbum: String): LocalDate {
-    val date = json.decodeFromString<TrAlbum>(trAlbum).albumReleaseDate
-    val matcher = Pattern.compile("^[^\\s]+ [^\\s]+ [^\\s]+").matcher(date)
-    try {
-      check(matcher.find())
-    } catch (e: IllegalStateException) {
-      throw IllegalStateException(String.format("Couldn't parse date from '%s'", date), e)
-    }
-    return LocalDate.parse(matcher.group(), DATE_FORMAT)
   }
 }
 
@@ -183,7 +173,17 @@ private fun getItemId(attribute: String): String {
   return checkNotNull(matcher.group(2))
 }
 
-@Serializable data class TrAlbum(@SerialName("album_release_date") val albumReleaseDate: String)
+private fun parseDate(metaDescription: String): LocalDate {
+  val matcher = DATE_PATTERN.matcher(metaDescription)
+  try {
+    check(matcher.find())
+  } catch (e: IllegalStateException) {
+    throw IllegalStateException(
+        String.format("Couldn't parse date from description '%s'", metaDescription), e)
+  }
+  val datePart = checkNotNull(matcher.group(2))
+  return LocalDate.parse(datePart, DATE_FORMAT)
+}
 
 private fun cleanUpReleaseUri(releaseUri: String, bandcampPrefix: String): String {
   val uri =
