@@ -196,7 +196,10 @@ class SqlStorage(url: String) {
                         Releases.RELEASES
                             .RELEASE_DATE
                             .eq(fromPage.date)
-                            .and(Releases.RELEASES.RELEASE_ID.lessOrEqual(fromPage.id))))
+                            .and(
+                                DSL.field(
+                                        "CAST(${Releases.RELEASES.RELEASE_ID.qualifiedName} as NUMERIC)")
+                                    .lessOrEqual(fromPage.id))))
           } else {
             select
           }
@@ -216,7 +219,8 @@ class SqlStorage(url: String) {
           }
       val orderedSelect =
           includePrereleasesSelect.orderBy(
-              Releases.RELEASES.RELEASE_DATE.desc(), Releases.RELEASES.RELEASE_ID.desc())
+              Releases.RELEASES.RELEASE_DATE.desc(),
+              DSL.field("CAST(${Releases.RELEASES.RELEASE_ID.qualifiedName} as NUMERIC)").desc())
       val limitedSelect =
           if (pageSize != null) {
             orderedSelect.limit(pageSize + 1)
